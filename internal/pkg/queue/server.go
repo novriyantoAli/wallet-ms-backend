@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"vibe-ddd-golang/internal/config"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/config"
 
 	"github.com/hibiken/asynq"
 	"go.uber.org/fx"

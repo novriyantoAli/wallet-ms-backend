@@ -4,9 +4,9 @@ import (
 	"errors"
 	"time"
 
-	"vibe-ddd-golang/internal/application/user/dto"
-	"vibe-ddd-golang/internal/application/user/entity"
-	"vibe-ddd-golang/internal/application/user/repository"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/user/dto"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/user/entity"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/user/repository"
 
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"

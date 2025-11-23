@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"vibe-ddd-golang/internal/application/payment/dto"
-	"vibe-ddd-golang/internal/application/payment/entity"
-	"vibe-ddd-golang/internal/application/payment/service"
-	"vibe-ddd-golang/internal/config"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/payment/dto"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/payment/entity"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/payment/service"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/config"
 
 	"github.com/hibiken/asynq"
 	"go.uber.org/zap"

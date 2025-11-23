@@ -1,8 +1,8 @@
 package api
 
 import (
-	"vibe-ddd-golang/internal/application/payment"
-	"vibe-ddd-golang/internal/application/user"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/payment"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/user"
 
 	"go.uber.org/fx"
 )

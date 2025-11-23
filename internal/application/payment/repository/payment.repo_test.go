@@ -3,9 +3,9 @@ package repository
 import (
 	"testing"
 
-	"vibe-ddd-golang/internal/application/payment/dto"
-	"vibe-ddd-golang/internal/application/payment/entity"
-	"vibe-ddd-golang/internal/pkg/testutil"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/payment/dto"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/payment/entity"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/testutil"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -88,7 +88,7 @@ func TestPaymentRepository_GetAll(t *testing.T) {
 	require.NoError(t, err)
 	logger := testutil.NewTestLogger(t)
 	repo := NewPaymentRepository(db, logger)
-	
+
 	// Clean up function
 	cleanup := func() {
 		db.Exec("DELETE FROM payments")

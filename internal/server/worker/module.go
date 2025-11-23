@@ -1,8 +1,8 @@
 package worker
 
 import (
-	paymentWorker "vibe-ddd-golang/internal/application/payment/worker"
-	"vibe-ddd-golang/internal/pkg/queue"
+	paymentWorker "github.com/novriyantoAli/wallet-ms-backend/internal/application/payment/worker"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/queue"
 
 	"github.com/hibiken/asynq"
 	"go.uber.org/zap"

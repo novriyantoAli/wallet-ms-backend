@@ -1,8 +1,8 @@
 package repository
 
 import (
-	"vibe-ddd-golang/internal/application/user/dto"
-	"vibe-ddd-golang/internal/application/user/entity"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/user/dto"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/user/entity"
 
 	"go.uber.org/zap"
 	"gorm.io/gorm"

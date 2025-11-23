@@ -4,10 +4,10 @@ import (
 	"context"
 	"net"
 
-	"vibe-ddd-golang/api/proto/payment"
-	"vibe-ddd-golang/api/proto/user"
-	paymentHandler "vibe-ddd-golang/internal/application/payment/handler"
-	userHandler "vibe-ddd-golang/internal/application/user/handler"
+	"github.com/novriyantoAli/wallet-ms-backend/api/proto/payment"
+	"github.com/novriyantoAli/wallet-ms-backend/api/proto/user"
+	paymentHandler "github.com/novriyantoAli/wallet-ms-backend/internal/application/payment/handler"
+	userHandler "github.com/novriyantoAli/wallet-ms-backend/internal/application/user/handler"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -74,7 +74,12 @@ func (s *Server) Stop() {
 
 // unaryLoggingInterceptor logs gRPC calls
 func unaryLoggingInterceptor(logger *zap.Logger) grpc.UnaryServerInterceptor {
-	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	return func(
+		ctx context.Context,
+		req interface{},
+		info *grpc.UnaryServerInfo,
+		handler grpc.UnaryHandler,
+	) (interface{}, error) {
 		logger.Info("gRPC call", zap.String("method", info.FullMethod))
 		return handler(ctx, req)
 	}

@@ -3,9 +3,9 @@ package database
 import (
 	"fmt"
 
-	"vibe-ddd-golang/internal/application/payment/entity"
-	userEntity "vibe-ddd-golang/internal/application/user/entity"
-	"vibe-ddd-golang/internal/config"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/payment/entity"
+	userEntity "github.com/novriyantoAli/wallet-ms-backend/internal/application/user/entity"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/config"
 
 	"go.uber.org/zap"
 	"gorm.io/driver/postgres"

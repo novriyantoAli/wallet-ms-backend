@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"vibe-ddd-golang/internal/application/payment/dto"
-	"vibe-ddd-golang/internal/application/payment/service"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/payment/dto"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/payment/service"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"

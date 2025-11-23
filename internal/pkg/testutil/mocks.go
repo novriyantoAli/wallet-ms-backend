@@ -1,10 +1,10 @@
 package testutil
 
 import (
-	"vibe-ddd-golang/internal/application/payment/dto"
-	"vibe-ddd-golang/internal/application/payment/entity"
-	userDto "vibe-ddd-golang/internal/application/user/dto"
-	userEntity "vibe-ddd-golang/internal/application/user/entity"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/payment/dto"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/payment/entity"
+	userDto "github.com/novriyantoAli/wallet-ms-backend/internal/application/user/dto"
+	userEntity "github.com/novriyantoAli/wallet-ms-backend/internal/application/user/entity"
 
 	"github.com/stretchr/testify/mock"
 )
@@ -37,8 +37,6 @@ func (m *MockUserRepository) GetByEmail(email string) (*userEntity.User, error) 
 
 func (m *MockUserRepository) GetAll(filter *userDto.UserFilter) ([]userEntity.User, int64, error) {
 	args := m.Called(filter)
-
-	// Handle nil case safely
 	var users []userEntity.User
 	if args.Get(0) != nil {
 		users = args.Get(0).([]userEntity.User)
@@ -48,7 +46,6 @@ func (m *MockUserRepository) GetAll(filter *userDto.UserFilter) ([]userEntity.Us
 	if args.Get(1) != nil {
 		count = args.Get(1).(int64)
 	}
-
 	return users, count, args.Error(2)
 }
 
@@ -87,8 +84,6 @@ func (m *MockPaymentRepository) GetByID(id uint) (*entity.Payment, error) {
 
 func (m *MockPaymentRepository) GetAll(filter *dto.PaymentFilter) ([]entity.Payment, int64, error) {
 	args := m.Called(filter)
-
-	// Handle nil case safely
 	var payments []entity.Payment
 	if args.Get(0) != nil {
 		payments = args.Get(0).([]entity.Payment)
@@ -98,7 +93,6 @@ func (m *MockPaymentRepository) GetAll(filter *dto.PaymentFilter) ([]entity.Paym
 	if args.Get(1) != nil {
 		count = args.Get(1).(int64)
 	}
-
 	return payments, count, args.Error(2)
 }
 
@@ -114,13 +108,10 @@ func (m *MockPaymentRepository) Delete(id uint) error {
 
 func (m *MockPaymentRepository) GetByUserID(userID uint) ([]entity.Payment, error) {
 	args := m.Called(userID)
-
-	// Handle nil case safely
 	var payments []entity.Payment
 	if args.Get(0) != nil {
 		payments = args.Get(0).([]entity.Payment)
 	}
-
 	return payments, args.Error(1)
 }
 

@@ -1,7 +1,7 @@
 package logger
 
 import (
-	"vibe-ddd-golang/internal/config"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/config"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"

@@ -3,10 +3,10 @@ package handler
 import (
 	"context"
 
-	"vibe-ddd-golang/api/proto/payment"
-	"vibe-ddd-golang/internal/application/payment/dto"
-	"vibe-ddd-golang/internal/application/payment/entity"
-	"vibe-ddd-golang/internal/application/payment/service"
+	"github.com/novriyantoAli/wallet-ms-backend/api/proto/payment"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/payment/dto"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/payment/entity"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/payment/service"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"

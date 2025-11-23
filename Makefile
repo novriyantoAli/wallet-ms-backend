@@ -7,7 +7,7 @@ GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
 GOMOD=$(GOCMD) mod
-BINARY_NAME=vibe-ddd-golang
+BINARY_NAME=wallet-ms-backend
 BINARY_PATH=./bin/$(BINARY_NAME)
 
 # Build the API api
@@ -175,7 +175,7 @@ format:
 format-strict:
 	gofumpt -l -w .
 	goimports -w .
-	gci write --skip-generated -s standard -s default -s "prefix(vibe-ddd-golang)" .
+	gci write --skip-generated -s standard -s default -s "prefix(github.com/novriyantoAli/wallet-ms-backend)" .
 
 # Install development tools
 tools:

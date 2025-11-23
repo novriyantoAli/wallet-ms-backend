@@ -780,7 +780,7 @@ const file_api_proto_user_user_proto_rawDesc = "" +
 	"UpdateUser\x12\x17.user.UpdateUserRequest\x1a\x18.user.UpdateUserResponse\x12?\n" +
 	"\n" +
 	"DeleteUser\x12\x17.user.DeleteUserRequest\x1a\x18.user.DeleteUserResponse\x12W\n" +
-	"\x12UpdateUserPassword\x12\x1f.user.UpdateUserPasswordRequest\x1a .user.UpdateUserPasswordResponseB Z\x1evibe-ddd-golang/api/proto/userb\x06proto3"
+	"\x12UpdateUserPassword\x12\x1f.user.UpdateUserPasswordRequest\x1a .user.UpdateUserPasswordResponseB Z\x1egithub.com/novriyantoAli/wallet-ms-backend/api/proto/userb\x06proto3"
 
 var (
 	file_api_proto_user_user_proto_rawDescOnce sync.Once

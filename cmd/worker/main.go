@@ -7,11 +7,11 @@ import (
 	"os/signal"
 	"syscall"
 
-	"vibe-ddd-golang/internal/config"
-	"vibe-ddd-golang/internal/pkg/database"
-	"vibe-ddd-golang/internal/pkg/logger"
-	"vibe-ddd-golang/internal/pkg/queue"
-	"vibe-ddd-golang/internal/server/worker"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/config"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/database"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/logger"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/queue"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/server/worker"
 
 	"go.uber.org/fx"
 )

@@ -1,10 +1,10 @@
 package grpc
 
 import (
-	"vibe-ddd-golang/internal/application/payment"
-	paymentHandler "vibe-ddd-golang/internal/application/payment/handler"
-	"vibe-ddd-golang/internal/application/user"
-	userHandler "vibe-ddd-golang/internal/application/user/handler"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/payment"
+	paymentHandler "github.com/novriyantoAli/wallet-ms-backend/internal/application/payment/handler"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/user"
+	userHandler "github.com/novriyantoAli/wallet-ms-backend/internal/application/user/handler"
 
 	"go.uber.org/fx"
 )

@@ -7,11 +7,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"vibe-ddd-golang/internal/application/user/dto"
-	"vibe-ddd-golang/internal/application/user/handler"
-	"vibe-ddd-golang/internal/application/user/repository"
-	"vibe-ddd-golang/internal/application/user/service"
-	"vibe-ddd-golang/internal/pkg/testutil"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/user/dto"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/user/handler"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/user/repository"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/user/service"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/testutil"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"

@@ -8,10 +8,10 @@ import (
 	"os/signal"
 	"syscall"
 
-	"vibe-ddd-golang/internal/config"
-	"vibe-ddd-golang/internal/pkg/database"
-	"vibe-ddd-golang/internal/pkg/logger"
-	"vibe-ddd-golang/internal/server/grpc"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/config"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/database"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/logger"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/server/grpc"
 
 	"go.uber.org/fx"
 )

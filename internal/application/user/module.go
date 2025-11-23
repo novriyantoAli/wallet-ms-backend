@@ -1,9 +1,9 @@
 package user
 
 import (
-	"vibe-ddd-golang/internal/application/user/handler"
-	"vibe-ddd-golang/internal/application/user/repository"
-	"vibe-ddd-golang/internal/application/user/service"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/user/handler"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/user/repository"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/user/service"
 
 	"go.uber.org/fx"
 )

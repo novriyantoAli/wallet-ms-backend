@@ -7,18 +7,20 @@ import (
 	"os/signal"
 	"syscall"
 
-	"vibe-ddd-golang/internal/config"
-	"vibe-ddd-golang/internal/pkg/database"
-	"vibe-ddd-golang/internal/pkg/logger"
-	"vibe-ddd-golang/internal/server/api"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/config"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/database"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/logger"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/server/api"
 
 	"go.uber.org/fx"
 )
 
 // @title           Vibe DDD Golang API
 // @version         1.0
-// @description     A production-ready Go boilerplate following Domain-Driven Design (DDD) principles with NestJS-like architecture patterns.
-// @description     Built with modern Go practices, microservice architecture, and comprehensive background job processing.
+// @description     A production-ready Go boilerplate following Domain-Driven Design (DDD)
+// @description     principles with NestJS-like architecture patterns.
+// @description     Built with modern Go practices, microservice architecture, and
+// @description     comprehensive background job processing.
 // @termsOfService  http://swagger.io/terms/
 
 // @contact.name   API Support

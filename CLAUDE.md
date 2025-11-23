@@ -86,7 +86,7 @@ The application follows a **multi-server architecture** where different concerns
 
 ### Directory Structure
 ```
-vibe-ddd-golang/
+github.com/novriyantoAli/wallet-ms-backend/
 ├── cmd/                                  # Application entry points
 │   ├── api/main.go                       # API server startup
 │   ├── worker/main.go                    # Worker server startup

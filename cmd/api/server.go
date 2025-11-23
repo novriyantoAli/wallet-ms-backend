@@ -9,8 +9,8 @@ import (
 	"syscall"
 	"time"
 
-	"vibe-ddd-golang/internal/config"
-	"vibe-ddd-golang/internal/server/api"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/config"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/server/api"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"

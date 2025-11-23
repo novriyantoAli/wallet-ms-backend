@@ -1,11 +1,11 @@
 package payment
 
 import (
-	"vibe-ddd-golang/internal/application/payment/handler"
-	"vibe-ddd-golang/internal/application/payment/repository"
-	"vibe-ddd-golang/internal/application/payment/service"
-	"vibe-ddd-golang/internal/application/payment/worker"
-	"vibe-ddd-golang/internal/pkg/queue"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/payment/handler"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/payment/repository"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/payment/service"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/payment/worker"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/queue"
 
 	"go.uber.org/fx"
 )

@@ -17,7 +17,7 @@ This project implements a **clean, domain-driven architecture** where each domai
 ## 📁 Project Structure
 
 ```
-vibe-ddd-golang/
+github.com/novriyantoAli/wallet-ms-backend/
 ├── cmd/                                  # Application entry points
 │   ├── api/main.go                       # API server startup
 │   ├── worker/main.go                    # Worker server startup
@@ -132,7 +132,7 @@ internal/application/{domain}/
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd vibe-ddd-golang
+   cd github.com/novriyantoAli/wallet-ms-backend
    ```
 
 2. **Install dependencies**
@@ -175,7 +175,7 @@ make build
 make build-worker
 
 # Run API api
-./bin/vibe-ddd-golang
+./bin/github.com/novriyantoAli/wallet-ms-backend
 
 # Run worker api
 ./bin/worker
@@ -518,8 +518,8 @@ make proto-clean
 ```go
 import (
     "google.golang.org/grpc"
-    "vibe-ddd-golang/api/proto/user"
-    "vibe-ddd-golang/api/proto/payment"
+    "github.com/novriyantoAli/wallet-ms-backend/api/proto/user"
+    "github.com/novriyantoAli/wallet-ms-backend/api/proto/payment"
 )
 
 // Connect to gRPC api

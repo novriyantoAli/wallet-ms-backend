@@ -3,10 +3,10 @@ package testutil
 import (
 	"time"
 
-	"vibe-ddd-golang/internal/application/payment/dto"
-	"vibe-ddd-golang/internal/application/payment/entity"
-	userDto "vibe-ddd-golang/internal/application/user/dto"
-	userEntity "vibe-ddd-golang/internal/application/user/entity"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/payment/dto"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/payment/entity"
+	userDto "github.com/novriyantoAli/wallet-ms-backend/internal/application/user/dto"
+	userEntity "github.com/novriyantoAli/wallet-ms-backend/internal/application/user/entity"
 )
 
 // User fixtures

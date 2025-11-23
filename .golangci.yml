@@ -31,7 +31,7 @@ linters-settings:
   gocyclo:
     min-complexity: 15
   goimports:
-    local-prefixes: vibe-ddd-golang
+    local-prefixes: github.com/novriyantoAli/wallet-ms-backend
   lll:
     line-length: 120
   misspell:

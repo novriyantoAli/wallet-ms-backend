@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"testing"
 
-	"vibe-ddd-golang/internal/application/user/dto"
-	"vibe-ddd-golang/internal/application/user/entity"
-	"vibe-ddd-golang/internal/pkg/testutil"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/user/dto"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/user/entity"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/testutil"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

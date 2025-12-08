@@ -13,6 +13,11 @@ import (
 	"gorm.io/gorm"
 )
 
+// JobScheduler defines the interface for scheduling background jobs
+type JobScheduler interface {
+	SchedulePaymentProcessing(paymentID uint) error
+}
+
 type PaymentService interface {
 	CreatePayment(req *dto.CreatePaymentRequest) (*dto.PaymentResponse, error)
 	GetPaymentByID(id uint) (*dto.PaymentResponse, error)
@@ -23,20 +28,23 @@ type PaymentService interface {
 }
 
 type paymentService struct {
-	repo        repository.PaymentRepository
-	userService service.UserService
-	logger      *zap.Logger
+	repo         repository.PaymentRepository
+	userService  service.UserService
+	jobScheduler JobScheduler
+	logger       *zap.Logger
 }
 
 func NewPaymentService(
 	repo repository.PaymentRepository,
 	userService service.UserService,
+	jobScheduler JobScheduler,
 	logger *zap.Logger,
 ) PaymentService {
 	return &paymentService{
-		repo:        repo,
-		userService: userService,
-		logger:      logger,
+		repo:         repo,
+		userService:  userService,
+		jobScheduler: jobScheduler,
+		logger:       logger,
 	}
 }
 
@@ -62,6 +70,13 @@ func (s *paymentService) CreatePayment(req *dto.CreatePaymentRequest) (*dto.Paym
 	if err != nil {
 		s.logger.Error("Failed to create payment", zap.Error(err))
 		return nil, err
+	}
+
+	// Schedule background job to process the payment
+	err = s.jobScheduler.SchedulePaymentProcessing(payment.ID)
+	if err != nil {
+		s.logger.Error("Failed to schedule payment processing job", zap.Uint("payment_id", payment.ID), zap.Error(err))
+		// Don't return error - payment is already created, job scheduling is non-blocking
 	}
 
 	return s.entityToResponse(payment), nil

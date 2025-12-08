@@ -99,8 +99,7 @@ func (h *UserGrpcHandler) UpdateUser(
 	req *user.UpdateUserRequest,
 ) (*user.UpdateUserResponse, error) {
 	updateReq := &dto.UpdateUserRequest{
-		Name:  req.Name,
-		Email: req.Email,
+		Name: req.Name,
 	}
 
 	userResponse, err := h.userService.UpdateUser(uint(req.Id), updateReq)

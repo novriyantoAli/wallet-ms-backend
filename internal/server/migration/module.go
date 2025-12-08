@@ -3,6 +3,7 @@ package migration
 import (
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/payment/entity"
 	userEntity "github.com/novriyantoAli/wallet-ms-backend/internal/application/user/entity"
+	walletEntity "github.com/novriyantoAli/wallet-ms-backend/internal/application/wallet/entity"
 
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -26,6 +27,8 @@ func (s *Server) RunMigrations() error {
 	// Run auto migrations for all entities
 	err := s.db.AutoMigrate(
 		&userEntity.User{},
+		&walletEntity.Wallet{},
+		&walletEntity.WalletTransaction{},
 		&entity.Payment{},
 	)
 	if err != nil {
@@ -51,8 +54,10 @@ func (s *Server) DropTables() error {
 	s.logger.Warn("Dropping all database tables")
 
 	err := s.db.Migrator().DropTable(
-		&userEntity.User{},
+		&walletEntity.WalletTransaction{},
+		&walletEntity.Wallet{},
 		&entity.Payment{},
+		&userEntity.User{},
 	)
 	if err != nil {
 		s.logger.Error("Failed to drop database tables", zap.Error(err))
@@ -60,5 +65,24 @@ func (s *Server) DropTables() error {
 	}
 
 	s.logger.Info("Database tables dropped successfully")
+	return nil
+}
+
+func (s *Server) RecreateUserTable() error {
+	s.logger.Warn("Recreating user table with new schema")
+
+	// Drop the table if it exists
+	if err := s.db.Migrator().DropTable(&userEntity.User{}); err != nil {
+		s.logger.Error("Failed to drop user table", zap.Error(err))
+		return err
+	}
+
+	// Create the table fresh with new schema
+	if err := s.db.AutoMigrate(&userEntity.User{}); err != nil {
+		s.logger.Error("Failed to create user table", zap.Error(err))
+		return err
+	}
+
+	s.logger.Info("User table recreated successfully with level column")
 	return nil
 }

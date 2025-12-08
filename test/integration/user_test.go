@@ -9,8 +9,9 @@ import (
 
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/user/dto"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/user/handler"
-	"github.com/novriyantoAli/wallet-ms-backend/internal/application/user/repository"
+	userrepo "github.com/novriyantoAli/wallet-ms-backend/internal/application/user/repository"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/user/service"
+	walletrepo "github.com/novriyantoAli/wallet-ms-backend/internal/application/wallet/repository"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/testutil"
 
 	"github.com/gin-gonic/gin"
@@ -28,8 +29,9 @@ func setupUserIntegration(t *testing.T) (*gin.Engine, func()) {
 	logger := testutil.NewTestLogger(t)
 
 	// Create real instances (no mocks)
-	userRepo := repository.NewUserRepository(db, logger)
-	userService := service.NewUserService(userRepo, logger)
+	userRepo := userrepo.NewUserRepository(db, logger)
+	walletRepo := walletrepo.NewWalletRepository(db, logger)
+	userService := service.NewUserService(userRepo, walletRepo, logger)
 	userHandler := handler.NewUserHandler(userService, logger)
 
 	// Setup Gin router

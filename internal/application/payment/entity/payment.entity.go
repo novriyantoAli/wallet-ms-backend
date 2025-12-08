@@ -1,6 +1,7 @@
 package entity
 
 import (
+	"database/sql/driver"
 	"time"
 
 	"gorm.io/gorm"
@@ -42,4 +43,25 @@ func (ps PaymentStatus) IsValid() bool {
 	default:
 		return false
 	}
+}
+
+func (ps PaymentStatus) Value() (driver.Value, error) {
+	return string(ps), nil
+}
+
+func (ps *PaymentStatus) Scan(value interface{}) error {
+	if value == nil {
+		*ps = PaymentStatusPending
+		return nil
+	}
+
+	switch v := value.(type) {
+	case string:
+		*ps = PaymentStatus(v)
+	case []byte:
+		*ps = PaymentStatus(v)
+	default:
+		*ps = PaymentStatusPending
+	}
+	return nil
 }

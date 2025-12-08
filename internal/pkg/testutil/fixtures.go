@@ -26,13 +26,13 @@ func CreateUserRequestFixture() *userDto.CreateUserRequest {
 		Name:     "John Doe",
 		Email:    "john@example.com",
 		Password: "password123",
+		Level:    "user",
 	}
 }
 
 func CreateUpdateUserRequestFixture() *userDto.UpdateUserRequest {
 	return &userDto.UpdateUserRequest{
-		Name:  "John Updated",
-		Email: "john.updated@example.com",
+		Name: "John Updated",
 	}
 }
 

@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/user/dto"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/user/service"
@@ -120,7 +121,7 @@ func (h *UserHandler) GetUsers(ctx *gin.Context) {
 
 // UpdateUser godoc
 // @Summary Update a user
-// @Description Update a user's information by ID
+// @Description Update a user's name by ID
 // @Tags users
 // @Accept json
 // @Produce json
@@ -129,7 +130,6 @@ func (h *UserHandler) GetUsers(ctx *gin.Context) {
 // @Success 200 {object} map[string]interface{} "Updated user"
 // @Failure 400 {object} map[string]interface{} "Invalid request"
 // @Failure 404 {object} map[string]interface{} "User not found"
-// @Failure 409 {object} map[string]interface{} "Email already exists"
 // @Failure 500 {object} map[string]interface{} "Internal server error"
 // @Router /users/{id} [put]
 func (h *UserHandler) UpdateUser(ctx *gin.Context) {
@@ -152,10 +152,6 @@ func (h *UserHandler) UpdateUser(ctx *gin.Context) {
 		h.logger.Error("Failed to update user", zap.Error(err))
 		if err.Error() == "user not found" {
 			ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-			return
-		}
-		if err.Error() == "email already exists" {
-			ctx.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 			return
 		}
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user"})
@@ -246,6 +242,111 @@ func (h *UserHandler) DeleteUser(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"message": "User deleted successfully"})
 }
 
+// GetCurrentUser godoc
+// @Summary Get current user details
+// @Description Get the current authenticated user's details using JWT token
+// @Tags users
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Success 200 {object} map[string]interface{} "Current user details"
+// @Failure 400 {object} map[string]interface{} "Missing or invalid token"
+// @Failure 401 {object} map[string]interface{} "Unauthorized - Invalid token"
+// @Failure 404 {object} map[string]interface{} "User not found"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Router /auth/me [get]
+func (h *UserHandler) GetCurrentUser(ctx *gin.Context) {
+	// Extract token from Authorization header
+	authHeader := ctx.GetHeader("Authorization")
+	if authHeader == "" {
+		h.logger.Warn("Missing authorization header")
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Authorization header is required"})
+		return
+	}
+
+	// Extract token from "Bearer <token>" format
+	const bearerPrefix = "Bearer "
+	if !strings.HasPrefix(authHeader, bearerPrefix) {
+		h.logger.Warn("Invalid authorization header format")
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid authorization header format"})
+		return
+	}
+
+	token := authHeader[len(bearerPrefix):]
+	if token == "" {
+		h.logger.Warn("Empty token in authorization header")
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid authorization header format"})
+		return
+	}
+
+	user, err := h.service.GetCurrentUser(token)
+	if err != nil {
+		h.logger.Error("Failed to get current user", zap.Error(err))
+		if err.Error() == "invalid or expired token" {
+			ctx.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+			return
+		}
+		if err.Error() == "user not found" {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve user"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"data": user})
+}
+
+// Logout godoc
+// @Summary Logout user
+// @Description Revoke the user's JWT token using Redis
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Success 200 {object} map[string]interface{} "Logout successful"
+// @Failure 400 {object} map[string]interface{} "Missing or invalid authorization header"
+// @Failure 401 {object} map[string]interface{} "Invalid token"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Router /auth/logout [post]
+func (h *UserHandler) Logout(ctx *gin.Context) {
+	// Extract token from Authorization header
+	authHeader := ctx.GetHeader("Authorization")
+	if authHeader == "" {
+		h.logger.Warn("Missing authorization header for logout")
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Authorization header is required"})
+		return
+	}
+
+	// Extract token from "Bearer <token>" format
+	const bearerPrefix = "Bearer "
+	if !strings.HasPrefix(authHeader, bearerPrefix) {
+		h.logger.Warn("Invalid authorization header format for logout")
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid authorization header format"})
+		return
+	}
+
+	token := authHeader[len(bearerPrefix):]
+	if token == "" {
+		h.logger.Warn("Empty token in authorization header for logout")
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid authorization header format"})
+		return
+	}
+
+	err := h.service.Logout(ctx, token)
+	if err != nil {
+		h.logger.Error("Failed to logout user", zap.Error(err))
+		if err.Error() == "invalid token" {
+			ctx.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to logout"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "Logout successful"})
+}
+
 func (h *UserHandler) RegisterRoutes(api *gin.RouterGroup) {
 	users := api.Group("/users")
 	{
@@ -256,4 +357,80 @@ func (h *UserHandler) RegisterRoutes(api *gin.RouterGroup) {
 		users.DELETE("/:id", h.DeleteUser)
 		users.PUT("/:id/password", h.UpdateUserPassword)
 	}
+
+	auth := api.Group("/auth")
+	{
+		auth.POST("/register", h.Register)
+		auth.POST("/login", h.Login)
+		auth.GET("/me", h.GetCurrentUser)
+		auth.DELETE("/logout", h.Logout)
+	}
+}
+
+// Register godoc
+// @Summary Register a new user
+// @Description Create a new user account with name, email and password
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param register body dto.RegisterRequest true "Registration request"
+// @Success 201 {object} map[string]interface{} "User registered successfully"
+// @Failure 400 {object} map[string]interface{} "Invalid request body"
+// @Failure 409 {object} map[string]interface{} "Email already exists"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Router /auth/register [post]
+func (h *UserHandler) Register(ctx *gin.Context) {
+	var req dto.RegisterRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		h.logger.Error("Invalid register request body", zap.Error(err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	user, err := h.service.Register(&req)
+	if err != nil {
+		h.logger.Error("Failed to register user", zap.Error(err))
+		if err.Error() == "email already exists" {
+			ctx.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register user"})
+		return
+	}
+
+	ctx.JSON(http.StatusCreated, gin.H{"data": user})
+}
+
+// Login godoc
+// @Summary Login user
+// @Description Authenticate user with email and password
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param login body dto.LoginRequest true "Login request"
+// @Success 200 {object} map[string]interface{} "Login successful"
+// @Failure 400 {object} map[string]interface{} "Invalid request body"
+// @Failure 401 {object} map[string]interface{} "Invalid email or password"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Router /auth/login [post]
+func (h *UserHandler) Login(ctx *gin.Context) {
+	var req dto.LoginRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		h.logger.Error("Invalid login request body", zap.Error(err))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	loginResp, err := h.service.Login(&req)
+	if err != nil {
+		h.logger.Error("Failed to login user", zap.Error(err))
+		if err.Error() == "invalid email or password" {
+			ctx.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to login"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"data": loginResp})
 }

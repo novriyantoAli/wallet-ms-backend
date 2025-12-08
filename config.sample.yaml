@@ -25,6 +25,45 @@ worker:
   retry_max_attempts: 3
   retry_delay: 30s
 
+jwt:
+  secret_key: "your-secret-key-change-in-production"
+  expiry: 24h
+
+dana_gapura:
+  base_url: "https://api.sandbox.dana.id"
+  partner_id: "2025080918375963572580"
+  private_key: |
+    -----BEGIN RSA PRIVATE KEY-----
+    MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDCxy8pZgz63Djt
+bet/0fhQBEOQKfcqHAxmKkFDSza97skL1fg7uxMux9WYYsZpLeRPVyWpGXoqQQIt
+DYiuckznbd+UJc7JzgsU6f33mGdJNurW26IJtH4U8XQknjpNebBHbZhb6IsE5bBK
+CNlsOMD9dxCGI3zGn95I4uistN8Q9lUq8w8Iy839yqmi1IPuyl1Z3iJhMfrWdjzC
+5pVj8W1meNikXKUrJNe/fp0Oy0FExEov0Crw5AYaqz7sMzPYtuBhQR/1TA+wgu4S
+lSJe+pS3FjbEMlKiLvqjBq7BweWasRJi+e+vgjO0+kERCKreVyLoVTYH45cgZEQr
+o9IJUkCjAgMBAAECggEBAJMpAKXrl4T1XAFvGg2xq0VxY0aJnldvZ6LM7BAWxJ5N
+yhIqMGmYlw6yJtwCTNvss2GKe0a+nAFOqoE1h34dl6MG7XQ1+H2aMd80RxCJUggL
++PQqbsucVeIm51Q/Q9eDSD8/O2y9TkN98mqNMxBD9PPLwG1IZJ6A7OXuolLSOPLL
+iO6Kn700bio+7VFkqrI10fypl/IlZ9ymDvxsqydlvMF4Yj+f1j4yasYtQOEcNF1N
+hbDcn/gZ8Ajx/E032TMlbs+RU4qxZ1xDCKhaBKSQu+zQHvl+w66nvuK7xwANDzME
+OiEbbrapqY+bMwpk0NuUZeu/qvINeVIruHnHMApWR0ECgYEA4YIy/Jq+MJ6N7YmD
+6lcvfmALFJB5xItny51AACwuKahEi1mdczoC/ItUlGVXbI8r4X5WmbtfI46++VTq
+laSkf7v32jfudpx+/KUXbTj3cIXZB/GldBYExXJvsCXGxYtJCxAV6ZgtpP7gN3bK
+kimGyZxRgxq9fev6ErEsmJV7qAMCgYEA3R1FssCBgHJbIeB2xU50e0r6LwZH0B7S
+LjuEXncw0xGeaQ4+zN2EuabOlXwO4EcMOw89NOMY1qPsNA7TvUlQCsjy/1+1aFNN
+GeMmW6J4qqzrSe/MldkNmoxSBAtEpLskG4rivhYBOp9j9k9Ct6J6q/I6AKqLdmYH
+AXnjbnLxMuECgYBwl0H/rv8AZVl1XLBZQzh6P1eo5810HSowlg2LSIOv1syKSq77
+Bd7R2nrbMJHqqLz+88YnMU76AN5GvGf3WOGsyNuhv0U3QUGBwKemp8ebDajjd3nl
+MM0nC9DJwMKyhK1ucZSPMaSweXTXHF9dhJBAfuSPsb0kbrpHtOAQOqonowKBgD20
+eovcvwcKYrY8fsinEUiK7vCKjyXcRAlU4KbAGmb8prlomUvwkaaBj2sV+MzL5vTg
+VtNYgMj9a+BHNv2+5NBtrapomiZoAL81rbGq0IPIx8yVWAGFVg+IEyc/wcM62mO5
+SXeEiolCi9Hj4pl+hT9Q1LD05wB+jnvx+O8MspThAoGAA1FLdIJHiVu0XPo49g/Z
+o177Gy+YJLIOTSsB0Z8jeQe2HttO7CJs1yym7E0AJGjhe/bkS0Gb4oLy9K37UgzU
+M5Rrlq4UDI2Vihrfys+9VaUsWKVR4UNP1lRh13OYf3EiO6L4lThVn1TYDnYGucAC
+Bz5qE/BcyExZ/1ROz7PVG0o=
+    -----END RSA PRIVATE KEY-----
+  private_key_path: "~/.rsa/private_key.pem"
+  public_key_path: "~/.rsa/public_key.pem"
+
 logger:
   level: info
   format: json

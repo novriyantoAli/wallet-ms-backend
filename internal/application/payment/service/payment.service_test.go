@@ -15,13 +15,24 @@ import (
 	"gorm.io/gorm"
 )
 
+// MockJobScheduler is a mock implementation of JobScheduler
+type MockJobScheduler struct {
+	mock.Mock
+}
+
+func (m *MockJobScheduler) SchedulePaymentProcessing(paymentID uint) error {
+	args := m.Called(paymentID)
+	return args.Error(0)
+}
+
 func TestPaymentService_CreatePayment(t *testing.T) {
 	t.Run("should create payment successfully", func(t *testing.T) {
 		// Setup
 		mockRepo := &testutil.MockPaymentRepository{}
 		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		service := NewPaymentService(mockRepo, mockUserService, logger)
+		mockScheduler := &MockJobScheduler{}
+		service := NewPaymentService(mockRepo, mockUserService, mockScheduler, logger)
 
 		req := testutil.CreatePaymentRequestFixture()
 		userResponse := &userDto.UserResponse{
@@ -36,6 +47,7 @@ func TestPaymentService_CreatePayment(t *testing.T) {
 			payment := args.Get(0).(*entity.Payment)
 			payment.ID = 1
 		})
+		mockScheduler.On("SchedulePaymentProcessing", uint(1)).Return(nil)
 
 		// When
 		response, err := service.CreatePayment(req)
@@ -58,7 +70,8 @@ func TestPaymentService_CreatePayment(t *testing.T) {
 		mockRepo := &testutil.MockPaymentRepository{}
 		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		service := NewPaymentService(mockRepo, mockUserService, logger)
+		mockScheduler := &MockJobScheduler{}
+		service := NewPaymentService(mockRepo, mockUserService, mockScheduler, logger)
 
 		req := testutil.CreatePaymentRequestFixture()
 
@@ -81,7 +94,8 @@ func TestPaymentService_CreatePayment(t *testing.T) {
 		mockRepo := &testutil.MockPaymentRepository{}
 		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		service := NewPaymentService(mockRepo, mockUserService, logger)
+		mockScheduler := &MockJobScheduler{}
+		service := NewPaymentService(mockRepo, mockUserService, mockScheduler, logger)
 
 		req := testutil.CreatePaymentRequestFixture()
 		userResponse := &userDto.UserResponse{
@@ -112,7 +126,8 @@ func TestPaymentService_GetPaymentByID(t *testing.T) {
 		mockRepo := &testutil.MockPaymentRepository{}
 		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		service := NewPaymentService(mockRepo, mockUserService, logger)
+		mockScheduler := &MockJobScheduler{}
+		service := NewPaymentService(mockRepo, mockUserService, mockScheduler, logger)
 
 		paymentID := uint(1)
 		payment := testutil.CreatePaymentFixture()
@@ -139,7 +154,8 @@ func TestPaymentService_GetPaymentByID(t *testing.T) {
 		mockRepo := &testutil.MockPaymentRepository{}
 		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		service := NewPaymentService(mockRepo, mockUserService, logger)
+		mockScheduler := &MockJobScheduler{}
+		service := NewPaymentService(mockRepo, mockUserService, mockScheduler, logger)
 
 		paymentID := uint(999)
 
@@ -161,7 +177,8 @@ func TestPaymentService_GetPaymentByID(t *testing.T) {
 		mockRepo := &testutil.MockPaymentRepository{}
 		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		service := NewPaymentService(mockRepo, mockUserService, logger)
+		mockScheduler := &MockJobScheduler{}
+		service := NewPaymentService(mockRepo, mockUserService, mockScheduler, logger)
 
 		paymentID := uint(1)
 
@@ -185,7 +202,8 @@ func TestPaymentService_GetPayments(t *testing.T) {
 		mockRepo := &testutil.MockPaymentRepository{}
 		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		service := NewPaymentService(mockRepo, mockUserService, logger)
+		mockScheduler := &MockJobScheduler{}
+		service := NewPaymentService(mockRepo, mockUserService, mockScheduler, logger)
 
 		filter := &dto.PaymentFilter{
 			Page:     1,
@@ -221,7 +239,8 @@ func TestPaymentService_GetPayments(t *testing.T) {
 		mockRepo := &testutil.MockPaymentRepository{}
 		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		service := NewPaymentService(mockRepo, mockUserService, logger)
+		mockScheduler := &MockJobScheduler{}
+		service := NewPaymentService(mockRepo, mockUserService, mockScheduler, logger)
 
 		filter := &dto.PaymentFilter{
 			Page:     0,
@@ -252,7 +271,8 @@ func TestPaymentService_GetPayments(t *testing.T) {
 		mockRepo := &testutil.MockPaymentRepository{}
 		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		service := NewPaymentService(mockRepo, mockUserService, logger)
+		mockScheduler := &MockJobScheduler{}
+		service := NewPaymentService(mockRepo, mockUserService, mockScheduler, logger)
 
 		filter := &dto.PaymentFilter{
 			Page:     1,
@@ -279,7 +299,8 @@ func TestPaymentService_UpdatePayment(t *testing.T) {
 		mockRepo := &testutil.MockPaymentRepository{}
 		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		service := NewPaymentService(mockRepo, mockUserService, logger)
+		mockScheduler := &MockJobScheduler{}
+		service := NewPaymentService(mockRepo, mockUserService, mockScheduler, logger)
 
 		paymentID := uint(1)
 		existingPayment := testutil.CreatePaymentFixture()
@@ -311,7 +332,8 @@ func TestPaymentService_UpdatePayment(t *testing.T) {
 		mockRepo := &testutil.MockPaymentRepository{}
 		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		service := NewPaymentService(mockRepo, mockUserService, logger)
+		mockScheduler := &MockJobScheduler{}
+		service := NewPaymentService(mockRepo, mockUserService, mockScheduler, logger)
 
 		paymentID := uint(999)
 		req := testutil.CreateUpdatePaymentRequestFixture()
@@ -334,7 +356,8 @@ func TestPaymentService_UpdatePayment(t *testing.T) {
 		mockRepo := &testutil.MockPaymentRepository{}
 		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		service := NewPaymentService(mockRepo, mockUserService, logger)
+		mockScheduler := &MockJobScheduler{}
+		service := NewPaymentService(mockRepo, mockUserService, mockScheduler, logger)
 
 		paymentID := uint(1)
 		existingPayment := testutil.CreatePaymentFixture()
@@ -361,7 +384,8 @@ func TestPaymentService_UpdatePayment(t *testing.T) {
 		mockRepo := &testutil.MockPaymentRepository{}
 		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		service := NewPaymentService(mockRepo, mockUserService, logger)
+		mockScheduler := &MockJobScheduler{}
+		service := NewPaymentService(mockRepo, mockUserService, mockScheduler, logger)
 
 		paymentID := uint(1)
 		existingPayment := testutil.CreatePaymentFixture()
@@ -391,7 +415,8 @@ func TestPaymentService_DeletePayment(t *testing.T) {
 		mockRepo := &testutil.MockPaymentRepository{}
 		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		service := NewPaymentService(mockRepo, mockUserService, logger)
+		mockScheduler := &MockJobScheduler{}
+		service := NewPaymentService(mockRepo, mockUserService, mockScheduler, logger)
 
 		paymentID := uint(1)
 		payment := testutil.CreatePaymentFixture()
@@ -414,7 +439,8 @@ func TestPaymentService_DeletePayment(t *testing.T) {
 		mockRepo := &testutil.MockPaymentRepository{}
 		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		service := NewPaymentService(mockRepo, mockUserService, logger)
+		mockScheduler := &MockJobScheduler{}
+		service := NewPaymentService(mockRepo, mockUserService, mockScheduler, logger)
 
 		paymentID := uint(999)
 
@@ -435,7 +461,8 @@ func TestPaymentService_DeletePayment(t *testing.T) {
 		mockRepo := &testutil.MockPaymentRepository{}
 		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		service := NewPaymentService(mockRepo, mockUserService, logger)
+		mockScheduler := &MockJobScheduler{}
+		service := NewPaymentService(mockRepo, mockUserService, mockScheduler, logger)
 
 		paymentID := uint(1)
 		payment := testutil.CreatePaymentFixture()
@@ -461,7 +488,8 @@ func TestPaymentService_GetPaymentsByUser(t *testing.T) {
 		mockRepo := &testutil.MockPaymentRepository{}
 		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		service := NewPaymentService(mockRepo, mockUserService, logger)
+		mockScheduler := &MockJobScheduler{}
+		service := NewPaymentService(mockRepo, mockUserService, mockScheduler, logger)
 
 		userID := uint(1)
 		payments := []entity.Payment{
@@ -496,7 +524,8 @@ func TestPaymentService_GetPaymentsByUser(t *testing.T) {
 		mockRepo := &testutil.MockPaymentRepository{}
 		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		service := NewPaymentService(mockRepo, mockUserService, logger)
+		mockScheduler := &MockJobScheduler{}
+		service := NewPaymentService(mockRepo, mockUserService, mockScheduler, logger)
 
 		userID := uint(1)
 
@@ -518,7 +547,8 @@ func TestPaymentService_GetPaymentsByUser(t *testing.T) {
 		mockRepo := &testutil.MockPaymentRepository{}
 		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		service := NewPaymentService(mockRepo, mockUserService, logger)
+		mockScheduler := &MockJobScheduler{}
+		service := NewPaymentService(mockRepo, mockUserService, mockScheduler, logger)
 
 		userID := uint(1)
 
@@ -542,7 +572,8 @@ func TestPaymentService_entityToResponse(t *testing.T) {
 		mockRepo := &testutil.MockPaymentRepository{}
 		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		service := NewPaymentService(mockRepo, mockUserService, logger).(*paymentService)
+		mockScheduler := &MockJobScheduler{}
+		service := NewPaymentService(mockRepo, mockUserService, mockScheduler, logger).(*paymentService)
 
 		payment := testutil.CreatePaymentFixture()
 		payment.ID = 1

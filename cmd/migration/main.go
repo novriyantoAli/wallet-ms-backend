@@ -18,7 +18,7 @@ import (
 
 func main() {
 	var (
-		action = flag.String("action", "migrate", "Action to perform: migrate, seed, drop")
+		action = flag.String("action", "migrate", "Action to perform: migrate, seed, drop, recreate-user")
 	)
 	flag.Parse()
 
@@ -69,8 +69,11 @@ func runMigration(ctx context.Context, server *migration.Server, action string) 
 	case "drop":
 		fmt.Println("Dropping database tables...")
 		err = server.DropTables()
+	case "recreate-user":
+		fmt.Println("Recreating user table...")
+		err = server.RecreateUserTable()
 	default:
-		fmt.Fprintf(os.Stderr, "Unknown action: %s. Available actions: migrate, seed, drop\n", action)
+		fmt.Fprintf(os.Stderr, "Unknown action: %s. Available actions: migrate, seed, drop, recreate-user\n", action)
 		os.Exit(1)
 	}
 

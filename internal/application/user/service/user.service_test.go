@@ -1,12 +1,14 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
 
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/user/dto"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/user/entity"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/jwt"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/testutil"
 
 	"github.com/stretchr/testify/assert"
@@ -15,12 +17,19 @@ import (
 	"gorm.io/gorm"
 )
 
+func newTestJWTManager() *jwt.JWTManager {
+	return jwt.NewJWTManager(jwt.JWTConfig{
+		SecretKey: "test-secret-key",
+		Expiry:    24 * time.Hour,
+	})
+}
+
 func TestUserService_CreateUser(t *testing.T) {
 	t.Run("should create user successfully", func(t *testing.T) {
 		// Setup
 		mockRepo := &testutil.MockUserRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewUserService(mockRepo, logger)
+		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, newTestJWTManager(), logger)
 
 		req := testutil.CreateUserRequestFixture()
 
@@ -40,6 +49,7 @@ func TestUserService_CreateUser(t *testing.T) {
 		assert.Equal(t, uint(1), response.ID)
 		assert.Equal(t, req.Name, response.Name)
 		assert.Equal(t, req.Email, response.Email)
+		assert.Equal(t, req.Level, response.Level)
 		mockRepo.AssertExpectations(t)
 	})
 
@@ -47,7 +57,7 @@ func TestUserService_CreateUser(t *testing.T) {
 		// Setup
 		mockRepo := &testutil.MockUserRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewUserService(mockRepo, logger)
+		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, newTestJWTManager(), logger)
 
 		req := testutil.CreateUserRequestFixture()
 
@@ -68,7 +78,7 @@ func TestUserService_CreateUser(t *testing.T) {
 		// Setup
 		mockRepo := &testutil.MockUserRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewUserService(mockRepo, logger)
+		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, newTestJWTManager(), logger)
 
 		req := testutil.CreateUserRequestFixture()
 
@@ -89,7 +99,7 @@ func TestUserService_CreateUser(t *testing.T) {
 		// Setup
 		mockRepo := &testutil.MockUserRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewUserService(mockRepo, logger)
+		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, newTestJWTManager(), logger)
 
 		req := testutil.CreateUserRequestFixture()
 
@@ -113,7 +123,7 @@ func TestUserService_GetUserByID(t *testing.T) {
 		// Setup
 		mockRepo := &testutil.MockUserRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewUserService(mockRepo, logger)
+		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, newTestJWTManager(), logger)
 
 		userID := uint(1)
 		user := testutil.CreateUserFixture()
@@ -138,7 +148,7 @@ func TestUserService_GetUserByID(t *testing.T) {
 		// Setup
 		mockRepo := &testutil.MockUserRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewUserService(mockRepo, logger)
+		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, newTestJWTManager(), logger)
 
 		userID := uint(999)
 
@@ -159,7 +169,7 @@ func TestUserService_GetUserByID(t *testing.T) {
 		// Setup
 		mockRepo := &testutil.MockUserRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewUserService(mockRepo, logger)
+		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, newTestJWTManager(), logger)
 
 		userID := uint(1)
 
@@ -182,7 +192,7 @@ func TestUserService_GetUserByEmail(t *testing.T) {
 		// Setup
 		mockRepo := &testutil.MockUserRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewUserService(mockRepo, logger)
+		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, newTestJWTManager(), logger)
 
 		email := "test@example.com"
 		user := testutil.CreateUserFixture()
@@ -206,7 +216,7 @@ func TestUserService_GetUserByEmail(t *testing.T) {
 		// Setup
 		mockRepo := &testutil.MockUserRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewUserService(mockRepo, logger)
+		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, newTestJWTManager(), logger)
 
 		email := "nonexistent@example.com"
 
@@ -229,7 +239,7 @@ func TestUserService_GetUsers(t *testing.T) {
 		// Setup
 		mockRepo := &testutil.MockUserRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewUserService(mockRepo, logger)
+		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, newTestJWTManager(), logger)
 
 		filter := &dto.UserFilter{
 			Page:     1,
@@ -264,7 +274,7 @@ func TestUserService_GetUsers(t *testing.T) {
 		// Setup
 		mockRepo := &testutil.MockUserRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewUserService(mockRepo, logger)
+		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, newTestJWTManager(), logger)
 
 		filter := &dto.UserFilter{
 			Page:     0,
@@ -294,7 +304,7 @@ func TestUserService_GetUsers(t *testing.T) {
 		// Setup
 		mockRepo := &testutil.MockUserRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewUserService(mockRepo, logger)
+		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, newTestJWTManager(), logger)
 
 		filter := &dto.UserFilter{
 			Page:     1,
@@ -320,19 +330,16 @@ func TestUserService_UpdateUser(t *testing.T) {
 		// Setup
 		mockRepo := &testutil.MockUserRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewUserService(mockRepo, logger)
+		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, newTestJWTManager(), logger)
 
 		userID := uint(1)
 		existingUser := testutil.CreateUserFixture()
 		existingUser.ID = userID
-		existingUser.Email = "old@example.com"
 
 		req := testutil.CreateUpdateUserRequestFixture()
-		req.Email = "new@example.com"
 
 		// Mock expectations
 		mockRepo.On("GetByID", userID).Return(existingUser, nil)
-		mockRepo.On("EmailExists", req.Email).Return(false, nil)
 		mockRepo.On("Update", mock.AnythingOfType("*entity.User")).Return(nil)
 
 		// When
@@ -343,7 +350,6 @@ func TestUserService_UpdateUser(t *testing.T) {
 		assert.NotNil(t, response)
 		assert.Equal(t, userID, response.ID)
 		assert.Equal(t, req.Name, response.Name)
-		assert.Equal(t, req.Email, response.Email)
 		mockRepo.AssertExpectations(t)
 	})
 
@@ -351,7 +357,7 @@ func TestUserService_UpdateUser(t *testing.T) {
 		// Setup
 		mockRepo := &testutil.MockUserRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewUserService(mockRepo, logger)
+		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, newTestJWTManager(), logger)
 
 		userID := uint(999)
 		req := testutil.CreateUpdateUserRequestFixture()
@@ -369,51 +375,27 @@ func TestUserService_UpdateUser(t *testing.T) {
 		mockRepo.AssertExpectations(t)
 	})
 
-	t.Run("should return error when new email already exists", func(t *testing.T) {
+	t.Run("should update only name field", func(t *testing.T) {
 		// Setup
 		mockRepo := &testutil.MockUserRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewUserService(mockRepo, logger)
+		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, newTestJWTManager(), logger)
 
 		userID := uint(1)
 		existingUser := testutil.CreateUserFixture()
 		existingUser.ID = userID
-		existingUser.Email = "old@example.com"
+		existingUser.Email = "original@example.com"
+		originalEmail := existingUser.Email
 
-		req := testutil.CreateUpdateUserRequestFixture()
-		req.Email = "exists@example.com"
-
-		// Mock expectations
-		mockRepo.On("GetByID", userID).Return(existingUser, nil)
-		mockRepo.On("EmailExists", req.Email).Return(true, nil)
-
-		// When
-		response, err := service.UpdateUser(userID, req)
-
-		// Then
-		assert.Error(t, err)
-		assert.Nil(t, response)
-		assert.Contains(t, err.Error(), "email already exists")
-		mockRepo.AssertExpectations(t)
-	})
-
-	t.Run("should not check email existence when email unchanged", func(t *testing.T) {
-		// Setup
-		mockRepo := &testutil.MockUserRepository{}
-		logger := testutil.NewSilentLogger()
-		service := NewUserService(mockRepo, logger)
-
-		userID := uint(1)
-		existingUser := testutil.CreateUserFixture()
-		existingUser.ID = userID
-		existingUser.Email = "same@example.com"
-
-		req := testutil.CreateUpdateUserRequestFixture()
-		req.Email = "same@example.com"
+		req := &dto.UpdateUserRequest{
+			Name: "Updated Name",
+		}
 
 		// Mock expectations
 		mockRepo.On("GetByID", userID).Return(existingUser, nil)
-		mockRepo.On("Update", mock.AnythingOfType("*entity.User")).Return(nil)
+		mockRepo.On("Update", mock.MatchedBy(func(u *entity.User) bool {
+			return u.ID == userID && u.Name == req.Name && u.Email == originalEmail
+		})).Return(nil)
 
 		// When
 		response, err := service.UpdateUser(userID, req)
@@ -421,8 +403,9 @@ func TestUserService_UpdateUser(t *testing.T) {
 		// Then
 		assert.NoError(t, err)
 		assert.NotNil(t, response)
+		assert.Equal(t, req.Name, response.Name)
+		assert.Equal(t, originalEmail, response.Email)
 		mockRepo.AssertExpectations(t)
-		mockRepo.AssertNotCalled(t, "EmailExists")
 	})
 }
 
@@ -431,7 +414,7 @@ func TestUserService_UpdateUserPassword(t *testing.T) {
 		// Setup
 		mockRepo := &testutil.MockUserRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewUserService(mockRepo, logger)
+		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, newTestJWTManager(), logger)
 
 		userID := uint(1)
 		currentPassword := "currentpassword"
@@ -462,7 +445,7 @@ func TestUserService_UpdateUserPassword(t *testing.T) {
 		// Setup
 		mockRepo := &testutil.MockUserRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewUserService(mockRepo, logger)
+		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, newTestJWTManager(), logger)
 
 		userID := uint(999)
 		req := &dto.UpdateUserPasswordRequest{
@@ -486,7 +469,7 @@ func TestUserService_UpdateUserPassword(t *testing.T) {
 		// Setup
 		mockRepo := &testutil.MockUserRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewUserService(mockRepo, logger)
+		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, newTestJWTManager(), logger)
 
 		userID := uint(1)
 		hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("correctpassword"), bcrypt.DefaultCost)
@@ -517,8 +500,9 @@ func TestUserService_DeleteUser(t *testing.T) {
 	t.Run("should delete user successfully", func(t *testing.T) {
 		// Setup
 		mockRepo := &testutil.MockUserRepository{}
+		mockWalletRepo := &testutil.MockWalletRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewUserService(mockRepo, logger)
+		service := NewUserService(mockRepo, mockWalletRepo, newTestJWTManager(), logger)
 
 		userID := uint(1)
 		user := testutil.CreateUserFixture()
@@ -526,6 +510,7 @@ func TestUserService_DeleteUser(t *testing.T) {
 
 		// Mock expectations
 		mockRepo.On("GetByID", userID).Return(user, nil)
+		mockWalletRepo.On("GetByUserID", userID).Return(nil, gorm.ErrRecordNotFound)
 		mockRepo.On("Delete", userID).Return(nil)
 
 		// When
@@ -534,13 +519,15 @@ func TestUserService_DeleteUser(t *testing.T) {
 		// Then
 		assert.NoError(t, err)
 		mockRepo.AssertExpectations(t)
+		mockWalletRepo.AssertExpectations(t)
 	})
 
 	t.Run("should return error when user not found", func(t *testing.T) {
 		// Setup
 		mockRepo := &testutil.MockUserRepository{}
+		mockWalletRepo := &testutil.MockWalletRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewUserService(mockRepo, logger)
+		service := NewUserService(mockRepo, mockWalletRepo, newTestJWTManager(), logger)
 
 		userID := uint(999)
 
@@ -559,8 +546,9 @@ func TestUserService_DeleteUser(t *testing.T) {
 	t.Run("should return error when delete fails", func(t *testing.T) {
 		// Setup
 		mockRepo := &testutil.MockUserRepository{}
+		mockWalletRepo := &testutil.MockWalletRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewUserService(mockRepo, logger)
+		service := NewUserService(mockRepo, mockWalletRepo, newTestJWTManager(), logger)
 
 		userID := uint(1)
 		user := testutil.CreateUserFixture()
@@ -568,6 +556,7 @@ func TestUserService_DeleteUser(t *testing.T) {
 
 		// Mock expectations
 		mockRepo.On("GetByID", userID).Return(user, nil)
+		mockWalletRepo.On("GetByUserID", userID).Return(nil, gorm.ErrRecordNotFound)
 		mockRepo.On("Delete", userID).Return(errors.New("delete failed"))
 
 		// When
@@ -585,7 +574,7 @@ func TestUserService_entityToResponse(t *testing.T) {
 		// Setup
 		mockRepo := &testutil.MockUserRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewUserService(mockRepo, logger).(*userService)
+		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, newTestJWTManager(), logger).(*userService)
 
 		user := testutil.CreateUserFixture()
 		user.ID = 1
@@ -605,4 +594,296 @@ func TestUserService_entityToResponse(t *testing.T) {
 		assert.Equal(t, user.UpdatedAt, response.UpdatedAt)
 		// Password should not be included in response (UserResponse doesn't have Password field)
 	})
+}
+
+func TestUserService_Register(t *testing.T) {
+	t.Run("should register user successfully", func(t *testing.T) {
+		// Setup
+		mockRepo := &testutil.MockUserRepository{}
+		logger := testutil.NewSilentLogger()
+		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, newTestJWTManager(), logger)
+
+		req := &dto.RegisterRequest{
+			Name:     "John Doe",
+			Email:    "john.doe@example.com",
+			Password: "password123",
+		}
+
+		// Mock expectations
+		mockRepo.On("EmailExists", req.Email).Return(false, nil)
+		mockRepo.On("Create", mock.AnythingOfType("*entity.User")).Return(nil).Run(func(args mock.Arguments) {
+			user := args.Get(0).(*entity.User)
+			user.ID = 1
+		})
+
+		// When
+		response, err := service.Register(req)
+
+		// Then
+		assert.NoError(t, err)
+		assert.NotNil(t, response)
+		assert.Equal(t, uint(1), response.ID)
+		assert.Equal(t, req.Name, response.Name)
+		assert.Equal(t, req.Email, response.Email)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("should return error when email already exists on register", func(t *testing.T) {
+		// Setup
+		mockRepo := &testutil.MockUserRepository{}
+		logger := testutil.NewSilentLogger()
+		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, newTestJWTManager(), logger)
+
+		req := &dto.RegisterRequest{
+			Name:     "Jane Doe",
+			Email:    "jane@example.com",
+			Password: "password123",
+		}
+
+		// Mock expectations
+		mockRepo.On("EmailExists", req.Email).Return(true, nil)
+
+		// When
+		response, err := service.Register(req)
+
+		// Then
+		assert.Error(t, err)
+		assert.Nil(t, response)
+		assert.Contains(t, err.Error(), "email already exists")
+		mockRepo.AssertExpectations(t)
+	})
+}
+
+func TestUserService_Login(t *testing.T) {
+	t.Run("should login user successfully", func(t *testing.T) {
+		// Setup
+		mockRepo := &testutil.MockUserRepository{}
+		logger := testutil.NewSilentLogger()
+		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, newTestJWTManager(), logger)
+
+		req := &dto.LoginRequest{
+			Email:    "test@example.com",
+			Password: "password123",
+		}
+
+		// Create a user with hashed password
+		user := testutil.CreateUserFixture()
+		user.ID = 1
+		user.Email = req.Email
+		hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+		user.Password = string(hashedPassword)
+
+		// Mock expectations
+		mockRepo.On("GetByEmail", req.Email).Return(user, nil)
+
+		// When
+		response, err := service.Login(req)
+
+		// Then
+		assert.NoError(t, err)
+		assert.NotNil(t, response)
+		assert.Equal(t, user.ID, response.ID)
+		assert.Equal(t, user.Name, response.Name)
+		assert.Equal(t, user.Email, response.Email)
+		assert.NotEmpty(t, response.Token)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("should return error when user email not found on login", func(t *testing.T) {
+		// Setup
+		mockRepo := &testutil.MockUserRepository{}
+		logger := testutil.NewSilentLogger()
+		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, newTestJWTManager(), logger)
+
+		req := &dto.LoginRequest{
+			Email:    "nonexistent@example.com",
+			Password: "password123",
+		}
+
+		// Mock expectations
+		mockRepo.On("GetByEmail", req.Email).Return(nil, gorm.ErrRecordNotFound)
+
+		// When
+		response, err := service.Login(req)
+
+		// Then
+		assert.Error(t, err)
+		assert.Nil(t, response)
+		assert.Contains(t, err.Error(), "invalid email or password")
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("should return error when password is incorrect", func(t *testing.T) {
+		// Setup
+		mockRepo := &testutil.MockUserRepository{}
+		logger := testutil.NewSilentLogger()
+		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, newTestJWTManager(), logger)
+
+		req := &dto.LoginRequest{
+			Email:    "test@example.com",
+			Password: "wrongpassword",
+		}
+
+		// Create a user with a different hashed password
+		user := testutil.CreateUserFixture()
+		user.ID = 1
+		user.Email = req.Email
+		hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("correctpassword"), bcrypt.DefaultCost)
+		user.Password = string(hashedPassword)
+
+		// Mock expectations
+		mockRepo.On("GetByEmail", req.Email).Return(user, nil)
+
+		// When
+		response, err := service.Login(req)
+
+		// Then
+		assert.Error(t, err)
+		assert.Nil(t, response)
+		assert.Contains(t, err.Error(), "invalid email or password")
+		mockRepo.AssertExpectations(t)
+	})
+}
+
+func TestUserService_GetCurrentUser(t *testing.T) {
+	t.Run("should get current user successfully with valid token", func(t *testing.T) {
+		// Setup
+		mockRepo := &testutil.MockUserRepository{}
+		logger := testutil.NewSilentLogger()
+		jwtManager := newTestJWTManager()
+		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, jwtManager, logger)
+
+		user := &entity.User{
+			ID:        1,
+			Name:      "John Doe",
+			Email:     "john@example.com",
+			Password:  "hashed_password",
+			Level:     "user",
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+
+		// Generate a valid token
+		token, err := jwtManager.GenerateToken(user.ID, user.Email, string(user.Level))
+		assert.NoError(t, err)
+
+		// Mock expectations
+		mockRepo.On("GetByID", user.ID).Return(user, nil)
+
+		// When
+		response, err := service.GetCurrentUser(token)
+
+		// Then
+		assert.NoError(t, err)
+		assert.NotNil(t, response)
+		assert.Equal(t, user.ID, response.ID)
+		assert.Equal(t, user.Email, response.Email)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("should return error with invalid token", func(t *testing.T) {
+		// Setup
+		mockRepo := &testutil.MockUserRepository{}
+		logger := testutil.NewSilentLogger()
+		jwtManager := newTestJWTManager()
+		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, jwtManager, logger)
+
+		// When
+		response, err := service.GetCurrentUser("invalid-token")
+
+		// Then
+		assert.Error(t, err)
+		assert.Nil(t, response)
+		assert.Contains(t, err.Error(), "invalid or expired token")
+		mockRepo.AssertNotCalled(t, "GetByID")
+	})
+
+	t.Run("should return error when user not found", func(t *testing.T) {
+		// Setup
+		mockRepo := &testutil.MockUserRepository{}
+		logger := testutil.NewSilentLogger()
+		jwtManager := newTestJWTManager()
+		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, jwtManager, logger)
+
+		user := &entity.User{
+			ID:    999,
+			Email: "notfound@example.com",
+			Level: "user",
+		}
+
+		// Generate a valid token with non-existent user ID
+		token, err := jwtManager.GenerateToken(user.ID, user.Email, string(user.Level))
+		assert.NoError(t, err)
+
+		// Mock expectations
+		mockRepo.On("GetByID", user.ID).Return(nil, gorm.ErrRecordNotFound)
+
+		// When
+		response, err := service.GetCurrentUser(token)
+
+		// Then
+		assert.Error(t, err)
+		assert.Nil(t, response)
+		assert.Contains(t, err.Error(), "user not found")
+		mockRepo.AssertExpectations(t)
+	})
+}
+
+
+func TestUserService_Logout(t *testing.T) {
+t.Run("should logout user successfully", func(t *testing.T) {
+// Setup
+mockRepo := &testutil.MockUserRepository{}
+logger := testutil.NewSilentLogger()
+jwtManager := newTestJWTManager()
+service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, jwtManager, logger)
+
+// Generate a valid token
+token, err := jwtManager.GenerateToken(1, "test@example.com", "user")
+assert.NoError(t, err)
+
+// When
+err = service.Logout(context.Background(), token)
+
+// Then
+assert.NoError(t, err)
+})
+t.Run("should return error when token is invalid", func(t *testing.T) {
+// Setup
+mockRepo := &testutil.MockUserRepository{}
+logger := testutil.NewSilentLogger()
+jwtManager := newTestJWTManager()
+service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, jwtManager, logger)
+
+// When
+err := service.Logout(context.Background(), "invalid-token")
+
+// Then
+assert.Error(t, err)
+assert.Contains(t, err.Error(), "invalid token")
+})
+
+t.Run("should return error when token is expired", func(t *testing.T) {
+// Setup
+mockRepo := &testutil.MockUserRepository{}
+logger := testutil.NewSilentLogger()
+
+// Create JWT manager with very short expiry
+config := jwt.JWTConfig{
+SecretKey: "test-secret-key",
+Expiry:    -time.Second, // Already expired
+}
+jwtManager := jwt.NewJWTManager(config)
+service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, jwtManager, logger)
+
+// Generate a token that's already expired
+token, err := jwtManager.GenerateToken(1, "test@example.com", "user")
+assert.NoError(t, err)
+
+// When
+err = service.Logout(context.Background(), token)
+
+// Then
+assert.Error(t, err)
+})
 }

@@ -12,11 +12,13 @@ const (
 )
 
 type Config struct {
-	Server   ServerConfig   `mapstructure:"api"`
-	Database DatabaseConfig `mapstructure:"database"`
-	Logger   LoggerConfig   `mapstructure:"logger"`
-	Redis    RedisConfig    `mapstructure:"redis"`
-	Worker   WorkerConfig   `mapstructure:"worker"`
+	Server     ServerConfig     `mapstructure:"server"`
+	Database   DatabaseConfig   `mapstructure:"database"`
+	Logger     LoggerConfig     `mapstructure:"logger"`
+	Redis      RedisConfig      `mapstructure:"redis"`
+	Worker     WorkerConfig     `mapstructure:"worker"`
+	JWT        JWTConfig        `mapstructure:"jwt"`
+	DanaGapura DanaGapuraConfig `mapstructure:"dana_gapura"`
 }
 
 type ServerConfig struct {
@@ -56,17 +58,30 @@ type WorkerConfig struct {
 	RetryDelay           time.Duration `mapstructure:"retry_delay"`
 }
 
+type JWTConfig struct {
+	SecretKey string        `mapstructure:"secret_key"`
+	Expiry    time.Duration `mapstructure:"expiry"`
+}
+
+type DanaGapuraConfig struct {
+	BaseURL        string `mapstructure:"base_url"`
+	PartnerID      string `mapstructure:"partner_id"`
+	PrivateKey     string `mapstructure:"private_key"`
+	PrivateKeyPath string `mapstructure:"private_key_path"`
+	PublicKeyPath  string `mapstructure:"public_key_path"`
+}
+
 func NewConfig() (*Config, error) {
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath(".")
 	viper.AddConfigPath("./config")
 
-	viper.SetDefault("api.host", "localhost")
-	viper.SetDefault("api.port", 8080)
-	viper.SetDefault("api.read_timeout", "10s")
-	viper.SetDefault("api.write_timeout", "10s")
-	viper.SetDefault("api.idle_timeout", "60s")
+	viper.SetDefault("server.host", "localhost")
+	viper.SetDefault("server.port", 8080)
+	viper.SetDefault("server.read_timeout", "10s")
+	viper.SetDefault("server.write_timeout", "10s")
+	viper.SetDefault("server.idle_timeout", "60s")
 
 	viper.SetDefault("database.host", "localhost")
 	viper.SetDefault("database.port", 5432)
@@ -88,6 +103,15 @@ func NewConfig() (*Config, error) {
 	viper.SetDefault("worker.payment_check_interval", "5m")
 	viper.SetDefault("worker.retry_max_attempts", 3)
 	viper.SetDefault("worker.retry_delay", "30s")
+
+	viper.SetDefault("jwt.secret_key", "your-secret-key-change-in-production")
+	viper.SetDefault("jwt.expiry", "24h")
+
+	viper.SetDefault("dana_gapura.base_url", "https://api.sandbox.dana.id")
+	viper.SetDefault("dana_gapura.partner_id", "")
+	viper.SetDefault("dana_gapura.private_key", "")
+	viper.SetDefault("dana_gapura.private_key_path", "")
+	viper.SetDefault("dana_gapura.public_key_path", "")
 
 	viper.AutomaticEnv()
 

@@ -10,6 +10,7 @@ import (
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/payment/entity"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/payment/service"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/config"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/domain/payment/port"
 
 	"github.com/hibiken/asynq"
 	"go.uber.org/zap"
@@ -21,6 +22,7 @@ type AsynqClient interface {
 
 type PaymentWorker struct {
 	paymentService service.PaymentService
+	gateway        port.PaymentGateway
 	client         AsynqClient
 	logger         *zap.Logger
 	cfg            *config.Config
@@ -36,12 +38,14 @@ type ProcessPaymentPayload struct {
 
 func NewPaymentWorker(
 	paymentService service.PaymentService,
+	gateway port.PaymentGateway,
 	client AsynqClient,
 	logger *zap.Logger,
 	cfg *config.Config,
 ) *PaymentWorker {
 	return &PaymentWorker{
 		paymentService: paymentService,
+		gateway:        gateway,
 		client:         client,
 		logger:         logger,
 		cfg:            cfg,
@@ -79,9 +83,18 @@ func (w *PaymentWorker) HandleCheckPaymentStatus(ctx context.Context, task *asyn
 		return nil
 	}
 
-	// Simulate external payment gateway status check
-	// In real implementation, you would call external payment gateway API
-	newStatus := w.simulatePaymentGatewayCheck(payment)
+	// Call Dana Gapura API to check payment status
+	gatewayResp, err := w.gateway.CheckPaymentStatus(ctx, fmt.Sprintf("%d", payment.ID))
+	if err != nil {
+		w.logger.Error("Failed to check payment status with gateway",
+			zap.Uint("payment_id", payload.PaymentID),
+			zap.Error(err))
+		// Retry later by returning error
+		return fmt.Errorf("failed to check payment status: %w", err)
+	}
+
+	// Map gateway response to local status
+	newStatus := w.mapGatewayStatusToLocal(gatewayResp.Status)
 
 	// Update payment status if changed
 	if newStatus != payment.Status {
@@ -139,16 +152,23 @@ func (w *PaymentWorker) HandleProcessPayment(ctx context.Context, task *asynq.Ta
 		return fmt.Errorf("failed to get payment: %w", err)
 	}
 
-	// Simulate payment processing
-	// In real implementation, you would call external payment gateway
-	success := w.simulatePaymentProcessing(payment)
-
-	var newStatus string
-	if success {
-		newStatus = entity.PaymentStatusCompleted.String()
-	} else {
-		newStatus = entity.PaymentStatusFailed.String()
+	// Call Dana Gapura API to process payment
+	gatewayResp, err := w.gateway.ProcessPayment(ctx, &port.ProcessPaymentRequest{
+		TransactionID: fmt.Sprintf("%d", payment.ID),
+		Amount:        payment.Amount,
+		Currency:      payment.Currency,
+		Description:   payment.Description,
+	})
+	if err != nil {
+		w.logger.Error("Failed to process payment with gateway",
+			zap.Uint("payment_id", payload.PaymentID),
+			zap.Error(err))
+		// Retry later by returning error
+		return fmt.Errorf("failed to process payment: %w", err)
 	}
+
+	// Map gateway response to local status
+	newStatus := w.mapGatewayStatusToLocal(gatewayResp.Status)
 
 	updateReq := &dto.UpdatePaymentRequest{
 		Status:      newStatus,
@@ -166,8 +186,7 @@ func (w *PaymentWorker) HandleProcessPayment(ctx context.Context, task *asynq.Ta
 
 	w.logger.Info("Payment processing completed",
 		zap.Uint("payment_id", payload.PaymentID),
-		zap.String("final_status", newStatus),
-		zap.Bool("success", success))
+		zap.String("final_status", newStatus))
 
 	return nil
 }
@@ -224,29 +243,18 @@ func (w *PaymentWorker) SchedulePaymentProcessing(paymentID uint) error {
 	return nil
 }
 
-// simulatePaymentGatewayCheck simulates checking payment status with external gateway
-func (w *PaymentWorker) simulatePaymentGatewayCheck(payment *dto.PaymentResponse) string {
-	// Simulate random status changes for demo purposes
-	// In real implementation, this would call actual payment gateway API
-
-	elapsed := time.Since(payment.CreatedAt)
-
-	// After 2 minutes, 80% chance to complete, 10% to fail, 10% stay pending
-	if elapsed > 2*time.Minute {
-		rand := time.Now().UnixNano() % 10
-		if rand < 8 {
-			return entity.PaymentStatusCompleted.String()
-		} else if rand < 9 {
-			return entity.PaymentStatusFailed.String()
-		}
+// mapGatewayStatusToLocal maps Dana Gapura gateway status to local payment status
+// This method implements the adapter pattern to convert external API responses
+// to internal domain status values
+func (w *PaymentWorker) mapGatewayStatusToLocal(gatewayStatus string) string {
+	switch gatewayStatus {
+	case "success":
+		return entity.PaymentStatusCompleted.String()
+	case "failed":
+		return entity.PaymentStatusFailed.String()
+	case "pending":
+		fallthrough
+	default:
+		return entity.PaymentStatusPending.String()
 	}
-
-	return entity.PaymentStatusPending.String()
-}
-
-// simulatePaymentProcessing simulates processing payment with external gateway
-func (w *PaymentWorker) simulatePaymentProcessing(payment *dto.PaymentResponse) bool {
-	// Simulate 90% success rate for demo purposes
-	rand := time.Now().UnixNano() % 10
-	return rand < 9
 }

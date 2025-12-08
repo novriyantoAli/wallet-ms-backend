@@ -3,6 +3,7 @@ package testutil
 import (
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/payment/entity"
 	userEntity "github.com/novriyantoAli/wallet-ms-backend/internal/application/user/entity"
+	walletEntity "github.com/novriyantoAli/wallet-ms-backend/internal/application/wallet/entity"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -22,6 +23,8 @@ func SetupTestDB() (*gorm.DB, error) {
 	err = db.AutoMigrate(
 		&userEntity.User{},
 		&entity.Payment{},
+		&walletEntity.Wallet{},
+		&walletEntity.WalletTransaction{},
 	)
 	if err != nil {
 		return nil, err
@@ -33,7 +36,13 @@ func SetupTestDB() (*gorm.DB, error) {
 // CleanDB cleans all data from test database
 func CleanDB(db *gorm.DB) error {
 	// Delete in reverse order of dependencies
+	if err := db.Exec("DELETE FROM wallet_transactions").Error; err != nil {
+		return err
+	}
 	if err := db.Exec("DELETE FROM payments").Error; err != nil {
+		return err
+	}
+	if err := db.Exec("DELETE FROM wallets").Error; err != nil {
 		return err
 	}
 	if err := db.Exec("DELETE FROM users").Error; err != nil {

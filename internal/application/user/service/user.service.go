@@ -1,12 +1,15 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"time"
 
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/user/dto"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/user/entity"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/user/repository"
+	walletrepo "github.com/novriyantoAli/wallet-ms-backend/internal/application/wallet/repository"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/jwt"
 
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
@@ -14,6 +17,9 @@ import (
 )
 
 type UserService interface {
+	Register(req *dto.RegisterRequest) (*dto.UserResponse, error)
+	Login(req *dto.LoginRequest) (*dto.LoginResponse, error)
+	GetCurrentUser(token string) (*dto.UserResponse, error)
 	CreateUser(req *dto.CreateUserRequest) (*dto.UserResponse, error)
 	GetUserByID(id uint) (*dto.UserResponse, error)
 	GetUserByEmail(email string) (*dto.UserResponse, error)
@@ -21,18 +27,116 @@ type UserService interface {
 	UpdateUser(id uint, req *dto.UpdateUserRequest) (*dto.UserResponse, error)
 	UpdateUserPassword(id uint, req *dto.UpdateUserPasswordRequest) error
 	DeleteUser(id uint) error
+	Logout(ctx context.Context, token string) error
 }
 
 type userService struct {
-	repo   repository.UserRepository
-	logger *zap.Logger
+	repo       repository.UserRepository
+	walletRepo walletrepo.WalletRepository
+	jwtManager *jwt.JWTManager
+	logger     *zap.Logger
 }
 
-func NewUserService(repo repository.UserRepository, logger *zap.Logger) UserService {
+func NewUserService(repo repository.UserRepository, walletRepo walletrepo.WalletRepository, jwtManager *jwt.JWTManager, logger *zap.Logger) UserService {
 	return &userService{
-		repo:   repo,
-		logger: logger,
+		repo:       repo,
+		walletRepo: walletRepo,
+		jwtManager: jwtManager,
+		logger:     logger,
 	}
+}
+
+func (s *userService) Register(req *dto.RegisterRequest) (*dto.UserResponse, error) {
+	exists, err := s.repo.EmailExists(req.Email)
+	if err != nil {
+		s.logger.Error("Failed to check email existence", zap.Error(err))
+		return nil, err
+	}
+	if exists {
+		return nil, errors.New("email already exists")
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		s.logger.Error("Failed to hash password", zap.Error(err))
+		return nil, err
+	}
+
+	user := &entity.User{
+		Name:      req.Name,
+		Email:     req.Email,
+		Password:  string(hashedPassword),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	err = s.repo.Create(user)
+	if err != nil {
+		s.logger.Error("Failed to register user", zap.Error(err))
+		return nil, err
+	}
+
+	s.logger.Info("User registered successfully", zap.String("email", user.Email))
+
+	return s.entityToResponse(user), nil
+}
+
+func (s *userService) Login(req *dto.LoginRequest) (*dto.LoginResponse, error) {
+	user, err := s.repo.GetByEmail(req.Email)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			s.logger.Warn("Login attempt with non-existent email", zap.String("email", req.Email))
+			return nil, errors.New("invalid email or password")
+		}
+		return nil, err
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
+	if err != nil {
+		s.logger.Warn("Login attempt with incorrect password", zap.String("email", req.Email))
+		return nil, errors.New("invalid email or password")
+	}
+
+	s.logger.Info("User logged in successfully", zap.String("email", user.Email), zap.Uint("user_id", user.ID))
+
+	// Generate JWT token
+	token, err := s.jwtManager.GenerateToken(user.ID, user.Email, string(user.Level))
+	if err != nil {
+		s.logger.Error("Failed to generate JWT token", zap.Error(err))
+		return nil, err
+	}
+
+	return &dto.LoginResponse{
+		ID:    user.ID,
+		Name:  user.Name,
+		Email: user.Email,
+		Level: string(user.Level),
+		Token: token,
+	}, nil
+}
+
+func (s *userService) GetCurrentUser(token string) (*dto.UserResponse, error) {
+	// Verify and extract claims from JWT token
+	claims, err := s.jwtManager.VerifyToken(token)
+	if err != nil {
+		s.logger.Warn("Invalid token provided", zap.Error(err))
+		return nil, errors.New("invalid or expired token")
+	}
+
+	// Retrieve user by ID from claims
+	user, err := s.repo.GetByID(claims.UserID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			s.logger.Warn("User not found for token", zap.Uint("user_id", claims.UserID))
+			return nil, errors.New("user not found")
+		}
+		s.logger.Error("Failed to retrieve user", zap.Error(err))
+		return nil, err
+	}
+
+	s.logger.Info("Current user retrieved", zap.String("email", user.Email), zap.Uint("user_id", user.ID))
+
+	return s.entityToResponse(user), nil
 }
 
 func (s *userService) CreateUser(req *dto.CreateUserRequest) (*dto.UserResponse, error) {
@@ -55,6 +159,7 @@ func (s *userService) CreateUser(req *dto.CreateUserRequest) (*dto.UserResponse,
 		Name:      req.Name,
 		Email:     req.Email,
 		Password:  string(hashedPassword),
+		Level:     entity.UserLevel(req.Level),
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
@@ -127,19 +232,7 @@ func (s *userService) UpdateUser(id uint, req *dto.UpdateUserRequest) (*dto.User
 		return nil, err
 	}
 
-	if req.Email != user.Email {
-		exists, err := s.repo.EmailExists(req.Email)
-		if err != nil {
-			s.logger.Error("Failed to check email existence", zap.Error(err))
-			return nil, err
-		}
-		if exists {
-			return nil, errors.New("email already exists")
-		}
-	}
-
 	user.Name = req.Name
-	user.Email = req.Email
 	user.UpdatedAt = time.Now()
 
 	err = s.repo.Update(user)
@@ -186,7 +279,35 @@ func (s *userService) DeleteUser(id uint) error {
 		return err
 	}
 
+	// Delete user's wallet if exists
+	wallet, err := s.walletRepo.GetByUserID(id)
+	if err == nil && wallet != nil {
+		if err := s.walletRepo.Delete(wallet.ID); err != nil {
+			s.logger.Error("Failed to delete user's wallet", zap.Uint("user_id", id), zap.Uint("wallet_id", wallet.ID), zap.Error(err))
+			// Continue with user deletion even if wallet deletion fails
+		}
+	}
+
 	return s.repo.Delete(id)
+}
+
+func (s *userService) Logout(ctx context.Context, token string) error {
+	// Verify token to get expiration time
+	claims, err := s.jwtManager.VerifyToken(token)
+	if err != nil {
+		s.logger.Warn("Failed to verify token for logout", zap.Error(err))
+		return errors.New("invalid token")
+	}
+
+	// Revoke the token using Redis
+	expirationTime := claims.ExpiresAt.Time
+	if err := s.jwtManager.RevokeToken(ctx, token, expirationTime); err != nil {
+		s.logger.Error("Failed to revoke token", zap.Error(err))
+		return errors.New("failed to revoke token")
+	}
+
+	s.logger.Info("Token revoked successfully", zap.Uint("user_id", claims.UserID))
+	return nil
 }
 
 func (s *userService) entityToResponse(user *entity.User) *dto.UserResponse {
@@ -194,6 +315,7 @@ func (s *userService) entityToResponse(user *entity.User) *dto.UserResponse {
 		ID:        user.ID,
 		Name:      user.Name,
 		Email:     user.Email,
+		Level:     string(user.Level),
 		CreatedAt: user.CreatedAt,
 		UpdatedAt: user.UpdatedAt,
 	}

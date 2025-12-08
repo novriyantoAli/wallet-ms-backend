@@ -1,0 +1,368 @@
+package service
+
+import (
+	"testing"
+
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/product/dto"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/product/entity"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/product/repository"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
+
+	"github.com/glebarez/sqlite"
+)
+
+func setupProductServiceTestDB(t *testing.T) *gorm.DB {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+	require.NoError(t, err)
+
+	err = db.AutoMigrate(&entity.Product{})
+	require.NoError(t, err)
+
+	return db
+}
+
+func TestProductService_CreateProduct(t *testing.T) {
+	db := setupProductServiceTestDB(t)
+	logger := zap.NewNop()
+	repo := repository.NewProductRepository(db, logger)
+	svc := NewProductService(repo, logger)
+
+	tests := []struct {
+		name      string
+		req       *dto.CreateProductRequest
+		expectErr bool
+		expectMsg string
+	}{
+		{
+			name: "create valid product",
+			req: &dto.CreateProductRequest{
+				Name:        "Laptop",
+				Description: "Gaming Laptop",
+				Price:       10000,
+				SKU:         "LAP-001",
+				Stock:       5,
+			},
+			expectErr: false,
+		},
+		{
+			name: "create product with empty name",
+			req: &dto.CreateProductRequest{
+				Name:  "",
+				Price: 5000,
+				SKU:   "PHN-001",
+			},
+			expectErr: true,
+			expectMsg: "invalid product data",
+		},
+		{
+			name: "create product with zero price",
+			req: &dto.CreateProductRequest{
+				Name:  "Phone",
+				Price: 0,
+				SKU:   "PHN-002",
+			},
+			expectErr: true,
+			expectMsg: "invalid product data",
+		},
+		{
+			name: "create product with empty SKU",
+			req: &dto.CreateProductRequest{
+				Name:  "Tablet",
+				Price: 5000,
+				SKU:   "",
+			},
+			expectErr: true,
+			expectMsg: "invalid product data",
+		},
+		{
+			name: "create duplicate SKU",
+			req: &dto.CreateProductRequest{
+				Name:  "Duplicate",
+				Price: 5000,
+				SKU:   "DUP-001",
+			},
+			expectErr: true,
+			expectMsg: "product with this SKU already exists",
+		},
+	}
+
+	// Pre-create a product with SKU DUP-001
+	err := repo.Create(&entity.Product{
+		Name:  "First Product",
+		Price: 3000,
+		SKU:   "DUP-001",
+	})
+	require.NoError(t, err)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp, err := svc.CreateProduct(tt.req)
+
+			if tt.expectErr {
+				assert.Error(t, err)
+				assert.Nil(t, resp)
+				if tt.expectMsg != "" {
+					assert.Contains(t, err.Error(), tt.expectMsg)
+				}
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, resp)
+				assert.Equal(t, tt.req.Name, resp.Name)
+				assert.Equal(t, tt.req.Price, resp.Price)
+				assert.Equal(t, tt.req.SKU, resp.SKU)
+			}
+		})
+	}
+}
+
+func TestProductService_GetProductByID(t *testing.T) {
+	db := setupProductServiceTestDB(t)
+	logger := zap.NewNop()
+	repo := repository.NewProductRepository(db, logger)
+	svc := NewProductService(repo, logger)
+
+	// Create a test product
+	product := &entity.Product{
+		Name:  "Test Product",
+		Price: 5000,
+		SKU:   "TEST-001",
+		Stock: 10,
+	}
+	err := repo.Create(product)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name      string
+		id        uint
+		expectErr bool
+	}{
+		{
+			name:      "get existing product",
+			id:        product.ID,
+			expectErr: false,
+		},
+		{
+			name:      "get non-existent product",
+			id:        999,
+			expectErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp, err := svc.GetProductByID(tt.id)
+
+			if tt.expectErr {
+				assert.Error(t, err)
+				assert.Nil(t, resp)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, resp)
+				assert.Equal(t, "Test Product", resp.Name)
+				assert.Equal(t, 5000.0, resp.Price)
+			}
+		})
+	}
+}
+
+func TestProductService_GetProductBySKU(t *testing.T) {
+	db := setupProductServiceTestDB(t)
+	logger := zap.NewNop()
+	repo := repository.NewProductRepository(db, logger)
+	svc := NewProductService(repo, logger)
+
+	product := &entity.Product{
+		Name:  "Test Product",
+		Price: 5000,
+		SKU:   "UNIQUE-SKU",
+		Stock: 10,
+	}
+	err := repo.Create(product)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name      string
+		sku       string
+		expectErr bool
+	}{
+		{
+			name:      "get product by existing SKU",
+			sku:       "UNIQUE-SKU",
+			expectErr: false,
+		},
+		{
+			name:      "get product by non-existent SKU",
+			sku:       "NON-EXISTENT",
+			expectErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp, err := svc.GetProductBySKU(tt.sku)
+
+			if tt.expectErr {
+				assert.Error(t, err)
+				assert.Nil(t, resp)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, resp)
+				assert.Equal(t, "Test Product", resp.Name)
+				assert.Equal(t, tt.sku, resp.SKU)
+			}
+		})
+	}
+}
+
+func TestProductService_GetProducts(t *testing.T) {
+	db := setupProductServiceTestDB(t)
+	logger := zap.NewNop()
+	repo := repository.NewProductRepository(db, logger)
+	svc := NewProductService(repo, logger)
+
+	// Create test products
+	products := []entity.Product{
+		{Name: "Laptop Computer", Price: 10000, SKU: "LAP-001", Stock: 5},
+		{Name: "Mobile Phone", Price: 5000, SKU: "PHN-001", Stock: 10},
+		{Name: "Tablet Device", Price: 3000, SKU: "TAB-001", Stock: 15},
+	}
+
+	for i := range products {
+		err := repo.Create(&products[i])
+		require.NoError(t, err)
+	}
+
+	tests := []struct {
+		name          string
+		filter        *dto.ProductFilter
+		expectedCount int64
+	}{
+		{
+			name:          "get all products",
+			filter:        &dto.ProductFilter{Page: 1, Limit: 10},
+			expectedCount: 3,
+		},
+		{
+			name:          "get products with limit",
+			filter:        &dto.ProductFilter{Page: 1, Limit: 2},
+			expectedCount: 3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp, err := svc.GetProducts(tt.filter)
+
+			assert.NoError(t, err)
+			assert.NotNil(t, resp)
+			assert.Equal(t, tt.expectedCount, resp.Total)
+		})
+	}
+}
+
+func TestProductService_UpdateProduct(t *testing.T) {
+	db := setupProductServiceTestDB(t)
+	logger := zap.NewNop()
+	repo := repository.NewProductRepository(db, logger)
+	svc := NewProductService(repo, logger)
+
+	product := &entity.Product{
+		Name:  "Original Name",
+		Price: 5000,
+		SKU:   "UPDATE-TEST",
+		Stock: 10,
+	}
+	err := repo.Create(product)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name      string
+		id        uint
+		req       *dto.UpdateProductRequest
+		expectErr bool
+	}{
+		{
+			name: "update product successfully",
+			id:   product.ID,
+			req: &dto.UpdateProductRequest{
+				Name:        "Updated Name",
+				Description: "Updated desc",
+				Price:       6000,
+				Stock:       20,
+			},
+			expectErr: false,
+		},
+		{
+			name:      "update non-existent product",
+			id:        999,
+			req:       &dto.UpdateProductRequest{Name: "Test"},
+			expectErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp, err := svc.UpdateProduct(tt.id, tt.req)
+
+			if tt.expectErr {
+				assert.Error(t, err)
+				assert.Nil(t, resp)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, resp)
+				assert.Equal(t, "Updated Name", resp.Name)
+				assert.Equal(t, 6000.0, resp.Price)
+				assert.Equal(t, 20, resp.Stock)
+			}
+		})
+	}
+}
+
+func TestProductService_DeleteProduct(t *testing.T) {
+	db := setupProductServiceTestDB(t)
+	logger := zap.NewNop()
+	repo := repository.NewProductRepository(db, logger)
+	svc := NewProductService(repo, logger)
+
+	product := &entity.Product{
+		Name:  "Delete Test",
+		Price: 5000,
+		SKU:   "DEL-TEST",
+	}
+	err := repo.Create(product)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name      string
+		id        uint
+		expectErr bool
+	}{
+		{
+			name:      "delete existing product",
+			id:        product.ID,
+			expectErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := svc.DeleteProduct(tt.id)
+
+			if tt.expectErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+
+				// Verify deletion
+				_, err := repo.GetByID(tt.id)
+				assert.Error(t, err)
+			}
+		})
+	}
+}

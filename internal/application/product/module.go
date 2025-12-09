@@ -25,16 +25,16 @@ func provideProductRepository(db *gorm.DB, logger *zap.Logger) repository.Produc
 	return repository.NewProductRepository(db, logger)
 }
 
-func provideProductService(repo repository.ProductRepository, logger *zap.Logger) service.ProductService {
-	return service.NewProductService(repo, logger)
+func provideWiFiProductRepository(db *gorm.DB) repository.WiFiProductRepository {
+	return repository.NewWiFiProductRepository(db)
+}
+
+func provideProductService(repo repository.ProductRepository, wifiRepo repository.WiFiProductRepository, logger *zap.Logger) service.ProductService {
+	return service.NewProductService(repo, wifiRepo, logger)
 }
 
 func provideProductHandler(service service.ProductService, wifiService service.WiFiProductService, logger *zap.Logger) *handler.ProductHandler {
 	return handler.NewProductHandler(service, wifiService, logger)
-}
-
-func provideWiFiProductRepository(db *gorm.DB) repository.WiFiProductRepository {
-	return repository.NewWiFiProductRepository(db)
 }
 
 func provideWiFiProductService(repo repository.WiFiProductRepository, logger *zap.Logger) service.WiFiProductService {

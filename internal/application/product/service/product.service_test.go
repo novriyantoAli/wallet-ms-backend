@@ -6,6 +6,7 @@ import (
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/product/dto"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/product/entity"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/product/repository"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/product/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -21,7 +22,7 @@ func setupProductServiceTestDB(t *testing.T) *gorm.DB {
 	})
 	require.NoError(t, err)
 
-	err = db.AutoMigrate(&entity.Product{})
+	err = db.AutoMigrate(&entity.Product{}, &entity.WiFiProduct{})
 	require.NoError(t, err)
 
 	return db
@@ -31,31 +32,45 @@ func TestProductService_CreateProduct(t *testing.T) {
 	db := setupProductServiceTestDB(t)
 	logger := zap.NewNop()
 	repo := repository.NewProductRepository(db, logger)
-	svc := NewProductService(repo, logger)
+	wifiRepo := repository.NewWiFiProductRepository(db)
+	svc := NewProductService(repo, wifiRepo, logger)
 
 	tests := []struct {
-		name      string
-		req       *dto.CreateProductRequest
-		expectErr bool
-		expectMsg string
+		name           string
+		req            *dto.CreateProductRequest
+		expectErr      bool
+		expectMsg      string
+		expectCategory string
 	}{
 		{
-			name: "create valid product",
+			name: "create valid wifi product",
 			req: &dto.CreateProductRequest{
-				Name:        "Laptop",
-				Description: "Gaming Laptop",
-				Price:       10000,
-				SKU:         "LAP-001",
-				Stock:       5,
+				Name:        "WiFi 10GB",
+				Description: "WiFi Package",
+				Price:       50000,
+				Category:    "wifi",
+				Stock:       100,
 			},
-			expectErr: false,
+			expectErr:      false,
+			expectCategory: "wifi",
+		},
+		{
+			name: "create valid pulsa product",
+			req: &dto.CreateProductRequest{
+				Name:        "Pulsa 50000",
+				Description: "Pulsa Package",
+				Price:       50000,
+				Category:    "pulsa",
+				Stock:       200,
+			},
+			expectErr:      false,
+			expectCategory: "pulsa",
 		},
 		{
 			name: "create product with empty name",
 			req: &dto.CreateProductRequest{
-				Name:  "",
-				Price: 5000,
-				SKU:   "PHN-001",
+				Price:    5000,
+				Category: "wifi",
 			},
 			expectErr: true,
 			expectMsg: "invalid product data",
@@ -63,40 +78,43 @@ func TestProductService_CreateProduct(t *testing.T) {
 		{
 			name: "create product with zero price",
 			req: &dto.CreateProductRequest{
-				Name:  "Phone",
-				Price: 0,
-				SKU:   "PHN-002",
+				Name:     "Phone",
+				Price:    0,
+				Category: "wifi",
 			},
 			expectErr: true,
 			expectMsg: "invalid product data",
 		},
 		{
-			name: "create product with empty SKU",
+			name: "create product with invalid category",
 			req: &dto.CreateProductRequest{
-				Name:  "Tablet",
-				Price: 5000,
-				SKU:   "",
+				Name:     "Invalid",
+				Price:    5000,
+				Category: "invalid",
 			},
 			expectErr: true,
 			expectMsg: "invalid product data",
 		},
 		{
-			name: "create duplicate SKU",
+			name: "create duplicate product with same category name price",
 			req: &dto.CreateProductRequest{
-				Name:  "Duplicate",
-				Price: 5000,
-				SKU:   "DUP-001",
+				Name:     "Duplicate Product",
+				Price:    5000,
+				Category: "wifi",
 			},
 			expectErr: true,
-			expectMsg: "product with this SKU already exists",
+			expectMsg: "product with this name, category and price already exists",
 		},
 	}
 
-	// Pre-create a product with SKU DUP-001
+	// Pre-create a product with same name, category and price for duplicate test
+	// Generate the SKU using the same utility function the service will use
+	duplicateSKU := util.GenerateSKU("wifi", "Duplicate Product", 5000)
 	err := repo.Create(&entity.Product{
-		Name:  "First Product",
-		Price: 3000,
-		SKU:   "DUP-001",
+		Name:     "Duplicate Product",
+		Price:    5000,
+		SKU:      duplicateSKU,
+		Category: entity.ProductCategoryWiFi,
 	})
 	require.NoError(t, err)
 
@@ -115,7 +133,16 @@ func TestProductService_CreateProduct(t *testing.T) {
 				assert.NotNil(t, resp)
 				assert.Equal(t, tt.req.Name, resp.Name)
 				assert.Equal(t, tt.req.Price, resp.Price)
-				assert.Equal(t, tt.req.SKU, resp.SKU)
+				assert.NotEmpty(t, resp.SKU) // SKU should be auto-generated
+				assert.Equal(t, tt.expectCategory, resp.Category)
+
+				// Verify WiFi product was created if category is wifi
+				if tt.req.Category == "wifi" {
+					wifiProduct, err := wifiRepo.GetByProductID(resp.ID)
+					assert.NoError(t, err)
+					assert.NotNil(t, wifiProduct)
+					assert.Equal(t, resp.ID, wifiProduct.ProductID)
+				}
 			}
 		})
 	}
@@ -125,7 +152,8 @@ func TestProductService_GetProductByID(t *testing.T) {
 	db := setupProductServiceTestDB(t)
 	logger := zap.NewNop()
 	repo := repository.NewProductRepository(db, logger)
-	svc := NewProductService(repo, logger)
+	wifiRepo := repository.NewWiFiProductRepository(db)
+	svc := NewProductService(repo, wifiRepo, logger)
 
 	// Create a test product
 	product := &entity.Product{
@@ -175,7 +203,8 @@ func TestProductService_GetProductBySKU(t *testing.T) {
 	db := setupProductServiceTestDB(t)
 	logger := zap.NewNop()
 	repo := repository.NewProductRepository(db, logger)
-	svc := NewProductService(repo, logger)
+	wifiRepo := repository.NewWiFiProductRepository(db)
+	svc := NewProductService(repo, wifiRepo, logger)
 
 	product := &entity.Product{
 		Name:  "Test Product",
@@ -224,7 +253,8 @@ func TestProductService_GetProducts(t *testing.T) {
 	db := setupProductServiceTestDB(t)
 	logger := zap.NewNop()
 	repo := repository.NewProductRepository(db, logger)
-	svc := NewProductService(repo, logger)
+	wifiRepo := repository.NewWiFiProductRepository(db)
+	svc := NewProductService(repo, wifiRepo, logger)
 
 	// Create test products
 	products := []entity.Product{
@@ -270,7 +300,8 @@ func TestProductService_UpdateProduct(t *testing.T) {
 	db := setupProductServiceTestDB(t)
 	logger := zap.NewNop()
 	repo := repository.NewProductRepository(db, logger)
-	svc := NewProductService(repo, logger)
+	wifiRepo := repository.NewWiFiProductRepository(db)
+	svc := NewProductService(repo, wifiRepo, logger)
 
 	product := &entity.Product{
 		Name:  "Original Name",
@@ -328,7 +359,8 @@ func TestProductService_DeleteProduct(t *testing.T) {
 	db := setupProductServiceTestDB(t)
 	logger := zap.NewNop()
 	repo := repository.NewProductRepository(db, logger)
-	svc := NewProductService(repo, logger)
+	wifiRepo := repository.NewWiFiProductRepository(db)
+	svc := NewProductService(repo, wifiRepo, logger)
 
 	product := &entity.Product{
 		Name:  "Delete Test",

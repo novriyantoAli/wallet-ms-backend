@@ -8,6 +8,7 @@ import (
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/user/dto"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/user/entity"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/user/repository"
+	walletEntity "github.com/novriyantoAli/wallet-ms-backend/internal/application/wallet/entity"
 	walletrepo "github.com/novriyantoAli/wallet-ms-backend/internal/application/wallet/repository"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/jwt"
 
@@ -74,6 +75,12 @@ func (s *userService) Register(req *dto.RegisterRequest) (*dto.UserResponse, err
 	if err != nil {
 		s.logger.Error("Failed to register user", zap.Error(err))
 		return nil, err
+	}
+
+	// Create wallet for user automatically
+	if err := s.createWalletForUser(user.ID); err != nil {
+		s.logger.Error("Failed to create wallet for user", zap.Error(err), zap.Uint("user_id", user.ID))
+		// Don't fail registration if wallet creation fails, but log the error
 	}
 
 	s.logger.Info("User registered successfully", zap.String("email", user.Email))
@@ -168,6 +175,12 @@ func (s *userService) CreateUser(req *dto.CreateUserRequest) (*dto.UserResponse,
 	if err != nil {
 		s.logger.Error("Failed to create user", zap.Error(err))
 		return nil, err
+	}
+
+	// Create wallet for user automatically
+	if err := s.createWalletForUser(user.ID); err != nil {
+		s.logger.Error("Failed to create wallet for user", zap.Error(err), zap.Uint("user_id", user.ID))
+		// Don't fail user creation if wallet creation fails, but log the error
 	}
 
 	return s.entityToResponse(user), nil
@@ -289,6 +302,25 @@ func (s *userService) DeleteUser(id uint) error {
 	}
 
 	return s.repo.Delete(id)
+}
+
+// createWalletForUser creates a wallet for a newly registered user
+func (s *userService) createWalletForUser(userID uint) error {
+	wallet := &walletEntity.Wallet{
+		UserID:    userID,
+		Balance:   0,
+		Currency:  "IDR",
+		Status:    walletEntity.WalletStatusActive,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	if err := s.walletRepo.Create(wallet); err != nil {
+		return err
+	}
+
+	s.logger.Info("Wallet created for user", zap.Uint("user_id", userID))
+	return nil
 }
 
 func (s *userService) Logout(ctx context.Context, token string) error {

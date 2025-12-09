@@ -8,6 +8,7 @@ import (
 
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/user/dto"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/user/entity"
+	walletEntity "github.com/novriyantoAli/wallet-ms-backend/internal/application/wallet/entity"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/jwt"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/testutil"
 
@@ -28,8 +29,9 @@ func TestUserService_CreateUser(t *testing.T) {
 	t.Run("should create user successfully", func(t *testing.T) {
 		// Setup
 		mockRepo := &testutil.MockUserRepository{}
+		mockWalletRepo := &testutil.MockWalletRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, newTestJWTManager(), logger)
+		service := NewUserService(mockRepo, mockWalletRepo, newTestJWTManager(), logger)
 
 		req := testutil.CreateUserRequestFixture()
 
@@ -39,6 +41,7 @@ func TestUserService_CreateUser(t *testing.T) {
 			user := args.Get(0).(*entity.User)
 			user.ID = 1
 		})
+		mockWalletRepo.On("Create", mock.AnythingOfType("*entity.Wallet")).Return(nil)
 
 		// When
 		response, err := service.CreateUser(req)
@@ -51,13 +54,43 @@ func TestUserService_CreateUser(t *testing.T) {
 		assert.Equal(t, req.Email, response.Email)
 		assert.Equal(t, req.Level, response.Level)
 		mockRepo.AssertExpectations(t)
+		mockWalletRepo.AssertExpectations(t)
+	})
+
+	t.Run("should create user successfully even if wallet creation fails", func(t *testing.T) {
+		// Setup
+		mockRepo := &testutil.MockUserRepository{}
+		mockWalletRepo := &testutil.MockWalletRepository{}
+		logger := testutil.NewSilentLogger()
+		service := NewUserService(mockRepo, mockWalletRepo, newTestJWTManager(), logger)
+
+		req := testutil.CreateUserRequestFixture()
+
+		// Mock expectations
+		mockRepo.On("EmailExists", req.Email).Return(false, nil)
+		mockRepo.On("Create", mock.AnythingOfType("*entity.User")).Return(nil).Run(func(args mock.Arguments) {
+			user := args.Get(0).(*entity.User)
+			user.ID = 1
+		})
+		mockWalletRepo.On("Create", mock.AnythingOfType("*entity.Wallet")).Return(errors.New("wallet creation failed"))
+
+		// When
+		response, err := service.CreateUser(req)
+
+		// Then - User creation should still succeed even if wallet fails
+		assert.NoError(t, err)
+		assert.NotNil(t, response)
+		assert.Equal(t, uint(1), response.ID)
+		mockRepo.AssertExpectations(t)
+		mockWalletRepo.AssertExpectations(t)
 	})
 
 	t.Run("should return error when email already exists", func(t *testing.T) {
 		// Setup
 		mockRepo := &testutil.MockUserRepository{}
+		mockWalletRepo := &testutil.MockWalletRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, newTestJWTManager(), logger)
+		service := NewUserService(mockRepo, mockWalletRepo, newTestJWTManager(), logger)
 
 		req := testutil.CreateUserRequestFixture()
 
@@ -77,8 +110,9 @@ func TestUserService_CreateUser(t *testing.T) {
 	t.Run("should return error when email check fails", func(t *testing.T) {
 		// Setup
 		mockRepo := &testutil.MockUserRepository{}
+		mockWalletRepo := &testutil.MockWalletRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, newTestJWTManager(), logger)
+		service := NewUserService(mockRepo, mockWalletRepo, newTestJWTManager(), logger)
 
 		req := testutil.CreateUserRequestFixture()
 
@@ -98,8 +132,9 @@ func TestUserService_CreateUser(t *testing.T) {
 	t.Run("should return error when user creation fails", func(t *testing.T) {
 		// Setup
 		mockRepo := &testutil.MockUserRepository{}
+		mockWalletRepo := &testutil.MockWalletRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, newTestJWTManager(), logger)
+		service := NewUserService(mockRepo, mockWalletRepo, newTestJWTManager(), logger)
 
 		req := testutil.CreateUserRequestFixture()
 
@@ -597,11 +632,12 @@ func TestUserService_entityToResponse(t *testing.T) {
 }
 
 func TestUserService_Register(t *testing.T) {
-	t.Run("should register user successfully", func(t *testing.T) {
+	t.Run("should register user successfully with wallet creation", func(t *testing.T) {
 		// Setup
 		mockRepo := &testutil.MockUserRepository{}
+		mockWalletRepo := &testutil.MockWalletRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, newTestJWTManager(), logger)
+		service := NewUserService(mockRepo, mockWalletRepo, newTestJWTManager(), logger)
 
 		req := &dto.RegisterRequest{
 			Name:     "John Doe",
@@ -615,6 +651,7 @@ func TestUserService_Register(t *testing.T) {
 			user := args.Get(0).(*entity.User)
 			user.ID = 1
 		})
+		mockWalletRepo.On("Create", mock.AnythingOfType("*entity.Wallet")).Return(nil)
 
 		// When
 		response, err := service.Register(req)
@@ -626,13 +663,47 @@ func TestUserService_Register(t *testing.T) {
 		assert.Equal(t, req.Name, response.Name)
 		assert.Equal(t, req.Email, response.Email)
 		mockRepo.AssertExpectations(t)
+		mockWalletRepo.AssertExpectations(t)
+	})
+
+	t.Run("should register user successfully even if wallet creation fails", func(t *testing.T) {
+		// Setup
+		mockRepo := &testutil.MockUserRepository{}
+		mockWalletRepo := &testutil.MockWalletRepository{}
+		logger := testutil.NewSilentLogger()
+		service := NewUserService(mockRepo, mockWalletRepo, newTestJWTManager(), logger)
+
+		req := &dto.RegisterRequest{
+			Name:     "Jane Doe",
+			Email:    "jane.doe@example.com",
+			Password: "password123",
+		}
+
+		// Mock expectations
+		mockRepo.On("EmailExists", req.Email).Return(false, nil)
+		mockRepo.On("Create", mock.AnythingOfType("*entity.User")).Return(nil).Run(func(args mock.Arguments) {
+			user := args.Get(0).(*entity.User)
+			user.ID = 2
+		})
+		mockWalletRepo.On("Create", mock.AnythingOfType("*entity.Wallet")).Return(errors.New("wallet creation failed"))
+
+		// When
+		response, err := service.Register(req)
+
+		// Then - Registration should succeed even if wallet creation fails
+		assert.NoError(t, err)
+		assert.NotNil(t, response)
+		assert.Equal(t, uint(2), response.ID)
+		mockRepo.AssertExpectations(t)
+		mockWalletRepo.AssertExpectations(t)
 	})
 
 	t.Run("should return error when email already exists on register", func(t *testing.T) {
 		// Setup
 		mockRepo := &testutil.MockUserRepository{}
+		mockWalletRepo := &testutil.MockWalletRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, newTestJWTManager(), logger)
+		service := NewUserService(mockRepo, mockWalletRepo, newTestJWTManager(), logger)
 
 		req := &dto.RegisterRequest{
 			Name:     "Jane Doe",
@@ -829,61 +900,119 @@ func TestUserService_GetCurrentUser(t *testing.T) {
 	})
 }
 
-
 func TestUserService_Logout(t *testing.T) {
-t.Run("should logout user successfully", func(t *testing.T) {
-// Setup
-mockRepo := &testutil.MockUserRepository{}
-logger := testutil.NewSilentLogger()
-jwtManager := newTestJWTManager()
-service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, jwtManager, logger)
+	t.Run("should logout user successfully", func(t *testing.T) {
+		// Setup
+		mockRepo := &testutil.MockUserRepository{}
+		logger := testutil.NewSilentLogger()
+		jwtManager := newTestJWTManager()
+		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, jwtManager, logger)
 
-// Generate a valid token
-token, err := jwtManager.GenerateToken(1, "test@example.com", "user")
-assert.NoError(t, err)
+		// Generate a valid token
+		token, err := jwtManager.GenerateToken(1, "test@example.com", "user")
+		assert.NoError(t, err)
 
-// When
-err = service.Logout(context.Background(), token)
+		// When
+		err = service.Logout(context.Background(), token)
 
-// Then
-assert.NoError(t, err)
-})
-t.Run("should return error when token is invalid", func(t *testing.T) {
-// Setup
-mockRepo := &testutil.MockUserRepository{}
-logger := testutil.NewSilentLogger()
-jwtManager := newTestJWTManager()
-service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, jwtManager, logger)
+		// Then
+		assert.NoError(t, err)
+	})
+	t.Run("should return error when token is invalid", func(t *testing.T) {
+		// Setup
+		mockRepo := &testutil.MockUserRepository{}
+		logger := testutil.NewSilentLogger()
+		jwtManager := newTestJWTManager()
+		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, jwtManager, logger)
 
-// When
-err := service.Logout(context.Background(), "invalid-token")
+		// When
+		err := service.Logout(context.Background(), "invalid-token")
 
-// Then
-assert.Error(t, err)
-assert.Contains(t, err.Error(), "invalid token")
-})
+		// Then
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid token")
+	})
 
-t.Run("should return error when token is expired", func(t *testing.T) {
-// Setup
-mockRepo := &testutil.MockUserRepository{}
-logger := testutil.NewSilentLogger()
+	t.Run("should return error when token is expired", func(t *testing.T) {
+		// Setup
+		mockRepo := &testutil.MockUserRepository{}
+		logger := testutil.NewSilentLogger()
 
-// Create JWT manager with very short expiry
-config := jwt.JWTConfig{
-SecretKey: "test-secret-key",
-Expiry:    -time.Second, // Already expired
+		// Create JWT manager with very short expiry
+		config := jwt.JWTConfig{
+			SecretKey: "test-secret-key",
+			Expiry:    -time.Second, // Already expired
+		}
+		jwtManager := jwt.NewJWTManager(config)
+		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, jwtManager, logger)
+
+		// Generate a token that's already expired
+		token, err := jwtManager.GenerateToken(1, "test@example.com", "user")
+		assert.NoError(t, err)
+
+		// When
+		err = service.Logout(context.Background(), token)
+
+		// Then
+		assert.Error(t, err)
+	})
 }
-jwtManager := jwt.NewJWTManager(config)
-service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, jwtManager, logger)
 
-// Generate a token that's already expired
-token, err := jwtManager.GenerateToken(1, "test@example.com", "user")
-assert.NoError(t, err)
+func TestUserService_CreateWalletForUser(t *testing.T) {
+	t.Run("should create wallet successfully", func(t *testing.T) {
+		// Setup
+		mockRepo := &testutil.MockUserRepository{}
+		mockWalletRepo := &testutil.MockWalletRepository{}
+		logger := testutil.NewSilentLogger()
+		service := &userService{
+			repo:       mockRepo,
+			walletRepo: mockWalletRepo,
+			jwtManager: newTestJWTManager(),
+			logger:     logger,
+		}
 
-// When
-err = service.Logout(context.Background(), token)
+		userID := uint(1)
 
-// Then
-assert.Error(t, err)
-})
+		// Mock expectations
+		mockWalletRepo.On("Create", mock.AnythingOfType("*entity.Wallet")).Return(nil).Run(func(args mock.Arguments) {
+			wallet := args.Get(0).(*walletEntity.Wallet)
+			assert.Equal(t, userID, wallet.UserID)
+			assert.Equal(t, 0.0, wallet.Balance)
+			assert.Equal(t, "IDR", wallet.Currency)
+			assert.Equal(t, walletEntity.WalletStatusActive, wallet.Status)
+		})
+
+		// When
+		err := service.createWalletForUser(userID)
+
+		// Then
+		assert.NoError(t, err)
+		mockWalletRepo.AssertExpectations(t)
+	})
+
+	t.Run("should return error when wallet creation fails", func(t *testing.T) {
+		// Setup
+		mockRepo := &testutil.MockUserRepository{}
+		mockWalletRepo := &testutil.MockWalletRepository{}
+		logger := testutil.NewSilentLogger()
+		service := &userService{
+			repo:       mockRepo,
+			walletRepo: mockWalletRepo,
+			jwtManager: newTestJWTManager(),
+			logger:     logger,
+		}
+
+		userID := uint(1)
+
+		// Mock expectations
+		mockWalletRepo.On("Create", mock.AnythingOfType("*entity.Wallet")).Return(errors.New("database error"))
+
+		// When
+		err := service.createWalletForUser(userID)
+
+		// Then
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "database error")
+		mockWalletRepo.AssertExpectations(t)
+	})
 }

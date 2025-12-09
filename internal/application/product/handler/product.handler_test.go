@@ -40,7 +40,7 @@ func setupProductHandlerForTest(t *testing.T) (*ProductHandler, *gorm.DB) {
 	repo := repository.NewProductRepository(db, logger)
 	wifiRepo := repository.NewWiFiProductRepository(db)
 
-	svc := service.NewProductService(repo, logger)
+	svc := service.NewProductService(repo, wifiRepo, logger)
 	wifiSvc := service.NewWiFiProductService(wifiRepo, logger)
 
 	handler := NewProductHandler(svc, wifiSvc, logger)
@@ -57,12 +57,23 @@ func TestProductHandler_CreateProduct(t *testing.T) {
 		expectedError  bool
 	}{
 		{
-			name: "create valid product",
+			name: "create valid wifi product",
 			req: dto.CreateProductRequest{
-				Name:  "Test Laptop",
-				Price: 10000,
-				SKU:   "LAP-TEST-001",
-				Stock: 5,
+				Name:     "WiFi 10GB",
+				Price:    50000,
+				Category: "wifi",
+				Stock:    100,
+			},
+			expectedStatus: http.StatusCreated,
+			expectedError:  false,
+		},
+		{
+			name: "create valid pulsa product",
+			req: dto.CreateProductRequest{
+				Name:     "Pulsa 50k",
+				Price:    50000,
+				Category: "pulsa",
+				Stock:    50,
 			},
 			expectedStatus: http.StatusCreated,
 			expectedError:  false,
@@ -76,9 +87,27 @@ func TestProductHandler_CreateProduct(t *testing.T) {
 		{
 			name: "create product with empty name",
 			req: dto.CreateProductRequest{
-				Name:  "",
+				Price:    5000,
+				Category: "wifi",
+			},
+			expectedStatus: http.StatusBadRequest,
+			expectedError:  true,
+		},
+		{
+			name: "create product without category",
+			req: dto.CreateProductRequest{
+				Name:  "No Category",
 				Price: 5000,
-				SKU:   "EMPTY-001",
+			},
+			expectedStatus: http.StatusBadRequest,
+			expectedError:  true,
+		},
+		{
+			name: "create product with invalid category",
+			req: dto.CreateProductRequest{
+				Name:     "Invalid Cat",
+				Price:    5000,
+				Category: "invalid",
 			},
 			expectedStatus: http.StatusBadRequest,
 			expectedError:  true,

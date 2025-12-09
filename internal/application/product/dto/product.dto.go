@@ -1,10 +1,24 @@
 package dto
 
+// CreateProductRequest contains the information needed to create a new product.
+// SKU is auto-generated on the server using category, name, and price.
+// The JSON tags are used to map the fields to the corresponding JSON fields.
+// The binding tags are used to validate the input data.
+//
+// @example
+//
+//	{
+//	 "name": "WiFi 10GB",
+//	 "description": "WiFi package 10GB",
+//	 "price": 50000,
+//	 "category": "wifi",
+//	 "stock": 100
+//	}
 type CreateProductRequest struct {
 	Name        string  `json:"name" binding:"required,min=1,max=255"`
 	Description string  `json:"description" binding:"max=1000"`
 	Price       float64 `json:"price" binding:"required,gt=0"`
-	SKU         string  `json:"sku" binding:"required,min=1,max=100"`
+	Category    string  `json:"category" binding:"required,oneof=wifi pulsa"` // wifi or pulsa
 	Stock       int     `json:"stock" binding:"min=0"`
 }
 
@@ -12,7 +26,6 @@ type UpdateProductRequest struct {
 	Name        string  `json:"name" binding:"omitempty,min=1,max=255"`
 	Description string  `json:"description" binding:"omitempty,max=1000"`
 	Price       float64 `json:"price" binding:"omitempty,gt=0"`
-	SKU         string  `json:"sku" binding:"omitempty,min=1,max=100"`
 	Stock       int     `json:"stock" binding:"omitempty,min=0"`
 }
 
@@ -22,6 +35,7 @@ type ProductResponse struct {
 	Description string  `json:"description"`
 	Price       float64 `json:"price"`
 	SKU         string  `json:"sku"`
+	Category    string  `json:"category"`
 	Stock       int     `json:"stock"`
 	CreatedAt   string  `json:"created_at"`
 	UpdatedAt   string  `json:"updated_at"`

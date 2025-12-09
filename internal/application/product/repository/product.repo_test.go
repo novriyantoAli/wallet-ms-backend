@@ -37,22 +37,36 @@ func TestProductRepository_Create(t *testing.T) {
 		expectErr bool
 	}{
 		{
-			name: "create valid product",
+			name: "create valid wifi product",
 			product: &entity.Product{
-				Name:        "Laptop",
-				Description: "Gaming laptop",
-				Price:       10000,
-				SKU:         "LAP-001",
-				Stock:       5,
+				Name:        "WiFi 10GB",
+				Description: "WiFi package",
+				Price:       50000,
+				SKU:         "WIFI-001",
+				Category:    entity.ProductCategoryWiFi,
+				Stock:       100,
+			},
+			expectErr: false,
+		},
+		{
+			name: "create valid pulsa product",
+			product: &entity.Product{
+				Name:        "Pulsa 50k",
+				Description: "Pulsa package",
+				Price:       50000,
+				SKU:         "PULSA-001",
+				Category:    entity.ProductCategoryPulsa,
+				Stock:       200,
 			},
 			expectErr: false,
 		},
 		{
 			name: "create product with minimum fields",
 			product: &entity.Product{
-				Name:  "Phone",
-				Price: 5000,
-				SKU:   "PHN-001",
+				Name:     "Phone",
+				Price:    5000,
+				SKU:      "PHN-001",
+				Category: entity.ProductCategoryWiFi,
 			},
 			expectErr: false,
 		},
@@ -67,11 +81,13 @@ func TestProductRepository_Create(t *testing.T) {
 				assert.NoError(t, err)
 				assert.NotZero(t, tt.product.ID)
 
-				// Verify it was saved
+				// Verify it was saved with all fields including category
 				saved, err := repo.GetByID(tt.product.ID)
 				assert.NoError(t, err)
 				assert.Equal(t, tt.product.Name, saved.Name)
 				assert.Equal(t, tt.product.Price, saved.Price)
+				assert.Equal(t, tt.product.Category, saved.Category)
+				assert.Equal(t, tt.product.SKU, saved.SKU)
 			}
 		})
 	}
@@ -82,12 +98,13 @@ func TestProductRepository_GetByID(t *testing.T) {
 	logger := zap.NewNop()
 	repo := NewProductRepository(db, logger)
 
-	// Create a test product
+	// Create a test product with category
 	product := &entity.Product{
-		Name:  "Test Product",
-		Price: 5000,
-		SKU:   "TEST-001",
-		Stock: 10,
+		Name:     "Test Product",
+		Price:    5000,
+		SKU:      "TEST-001",
+		Stock:    10,
+		Category: entity.ProductCategoryWiFi,
 	}
 	err := repo.Create(product)
 	require.NoError(t, err)
@@ -123,6 +140,7 @@ func TestProductRepository_GetByID(t *testing.T) {
 				assert.NotNil(t, result)
 				assert.Equal(t, "Test Product", result.Name)
 				assert.Equal(t, 5000.0, result.Price)
+				assert.Equal(t, entity.ProductCategoryWiFi, result.Category)
 			}
 		})
 	}
@@ -134,10 +152,11 @@ func TestProductRepository_GetBySKU(t *testing.T) {
 	repo := NewProductRepository(db, logger)
 
 	product := &entity.Product{
-		Name:  "Test Product",
-		Price: 5000,
-		SKU:   "UNIQUE-SKU-001",
-		Stock: 10,
+		Name:     "Test Product",
+		Price:    5000,
+		SKU:      "UNIQUE-SKU-001",
+		Stock:    10,
+		Category: entity.ProductCategoryWiFi,
 	}
 	err := repo.Create(product)
 	require.NoError(t, err)
@@ -170,6 +189,7 @@ func TestProductRepository_GetBySKU(t *testing.T) {
 				assert.NotNil(t, result)
 				assert.Equal(t, "Test Product", result.Name)
 				assert.Equal(t, tt.sku, result.SKU)
+				assert.Equal(t, entity.ProductCategoryWiFi, result.Category)
 			}
 		})
 	}
@@ -182,9 +202,9 @@ func TestProductRepository_GetAll(t *testing.T) {
 
 	// Create test products
 	products := []entity.Product{
-		{Name: "Laptop", Price: 10000, SKU: "LAP-001", Stock: 5},
-		{Name: "Phone", Price: 5000, SKU: "PHN-001", Stock: 10},
-		{Name: "Tablet", Price: 3000, SKU: "TAB-001", Stock: 15},
+		{Name: "Laptop", Price: 10000, SKU: "LAP-001", Stock: 5, Category: entity.ProductCategoryWiFi},
+		{Name: "Phone", Price: 5000, SKU: "PHN-001", Stock: 10, Category: entity.ProductCategoryPulsa},
+		{Name: "Tablet", Price: 3000, SKU: "TAB-001", Stock: 15, Category: entity.ProductCategoryWiFi},
 	}
 
 	for i := range products {
@@ -230,10 +250,11 @@ func TestProductRepository_Update(t *testing.T) {
 
 	// Create a test product
 	product := &entity.Product{
-		Name:  "Original Name",
-		Price: 5000,
-		SKU:   "UPDATE-TEST",
-		Stock: 10,
+		Name:     "Original Name",
+		Price:    5000,
+		SKU:      "UPDATE-TEST",
+		Stock:    10,
+		Category: entity.ProductCategoryWiFi,
 	}
 	err := repo.Create(product)
 	require.NoError(t, err)
@@ -246,11 +267,12 @@ func TestProductRepository_Update(t *testing.T) {
 		{
 			name: "update product fields",
 			product: &entity.Product{
-				ID:    product.ID,
-				Name:  "Updated Name",
-				Price: 6000,
-				SKU:   "UPDATE-TEST",
-				Stock: 20,
+				ID:       product.ID,
+				Name:     "Updated Name",
+				Price:    6000,
+				SKU:      "UPDATE-TEST",
+				Stock:    20,
+				Category: entity.ProductCategoryPulsa,
 			},
 			expectErr: false,
 		},
@@ -271,6 +293,7 @@ func TestProductRepository_Update(t *testing.T) {
 				assert.Equal(t, "Updated Name", saved.Name)
 				assert.Equal(t, 6000.0, saved.Price)
 				assert.Equal(t, 20, saved.Stock)
+				assert.Equal(t, entity.ProductCategoryPulsa, saved.Category)
 			}
 		})
 	}
@@ -282,10 +305,11 @@ func TestProductRepository_Delete(t *testing.T) {
 	repo := NewProductRepository(db, logger)
 
 	product := &entity.Product{
-		Name:  "Delete Test",
-		Price: 5000,
-		SKU:   "DEL-TEST",
-		Stock: 5,
+		Name:     "Delete Test",
+		Price:    5000,
+		SKU:      "DEL-TEST",
+		Stock:    5,
+		Category: entity.ProductCategoryWiFi,
 	}
 	err := repo.Create(product)
 	require.NoError(t, err)

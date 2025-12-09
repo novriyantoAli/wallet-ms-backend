@@ -85,6 +85,7 @@ func (s *Server) RunMigrations() error {
 			description VARCHAR(1000),
 			price DECIMAL(10,2) NOT NULL,
 			sku VARCHAR(100) UNIQUE NOT NULL,
+			category VARCHAR(20) DEFAULT 'wifi' NOT NULL,
 			stock INTEGER DEFAULT 0,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

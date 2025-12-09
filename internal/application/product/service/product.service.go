@@ -6,6 +6,7 @@ import (
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/product/dto"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/product/entity"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/product/repository"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/application/product/util"
 
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -21,30 +22,36 @@ type ProductService interface {
 }
 
 type productService struct {
-	repo   repository.ProductRepository
-	logger *zap.Logger
+	repo            repository.ProductRepository
+	wifiProductRepo repository.WiFiProductRepository
+	logger          *zap.Logger
 }
 
-func NewProductService(repo repository.ProductRepository, logger *zap.Logger) ProductService {
+func NewProductService(repo repository.ProductRepository, wifiProductRepo repository.WiFiProductRepository, logger *zap.Logger) ProductService {
 	return &productService{
-		repo:   repo,
-		logger: logger,
+		repo:            repo,
+		wifiProductRepo: wifiProductRepo,
+		logger:          logger,
 	}
 }
 
 func (s *productService) CreateProduct(req *dto.CreateProductRequest) (*dto.ProductResponse, error) {
+	// Auto-generate SKU from category, name, and price
+	sku := util.GenerateSKU(req.Category, req.Name, req.Price)
+
 	// Check if SKU already exists
-	existing, _ := s.repo.GetBySKU(req.SKU)
+	existing, _ := s.repo.GetBySKU(sku)
 	if existing != nil {
-		s.logger.Warn("Product with SKU already exists", zap.String("sku", req.SKU))
-		return nil, errors.New("product with this SKU already exists")
+		s.logger.Warn("Product with auto-generated SKU already exists", zap.String("sku", sku))
+		return nil, errors.New("product with this name, category and price already exists")
 	}
 
 	product := &entity.Product{
 		Name:        req.Name,
 		Description: req.Description,
 		Price:       req.Price,
-		SKU:         req.SKU,
+		SKU:         sku,
+		Category:    entity.ProductCategory(req.Category),
 		Stock:       req.Stock,
 	}
 
@@ -58,6 +65,24 @@ func (s *productService) CreateProduct(req *dto.CreateProductRequest) (*dto.Prod
 		return nil, err
 	}
 
+	// If category is WiFi, WiFi product details must be provided
+	if product.Category == entity.ProductCategoryWiFi {
+		// For WiFi products, create a default WiFi product entry
+		// The WiFi product details (quota, duration, speed_limit) should be set by the client through a separate endpoint
+		wifiProduct := &entity.WiFiProduct{
+			ProductID:  product.ID,
+			Quota:      0, // Will be updated through separate endpoint
+			Duration:   0, // Will be updated through separate endpoint
+			SpeedLimit: 0, // Will be updated through separate endpoint
+		}
+
+		if err := s.wifiProductRepo.Create(wifiProduct); err != nil {
+			s.logger.Warn("Failed to create wifi product details, but product was created", zap.Error(err), zap.Uint("product_id", product.ID))
+			// Don't fail the product creation if wifi product creation fails
+		}
+	}
+
+	s.logger.Info("Product created successfully", zap.Uint("id", product.ID), zap.String("sku", sku), zap.String("category", string(product.Category)))
 	return s.entityToResponse(product), nil
 }
 
@@ -128,14 +153,9 @@ func (s *productService) UpdateProduct(id uint, req *dto.UpdateProductRequest) (
 		return nil, err
 	}
 
-	// Check if new SKU is already used by another product
-	if req.SKU != "" && req.SKU != product.SKU {
-		existing, _ := s.repo.GetBySKU(req.SKU)
-		if existing != nil {
-			return nil, errors.New("product with this SKU already exists")
-		}
-		product.SKU = req.SKU
-	}
+	// Note: SKU and Category cannot be updated after product creation
+	// SKU is auto-generated from category, name, and price at creation time
+	// Category is immutable
 
 	if req.Name != "" {
 		product.Name = req.Name
@@ -187,6 +207,7 @@ func (s *productService) entityToResponse(product *entity.Product) *dto.ProductR
 		Description: product.Description,
 		Price:       product.Price,
 		SKU:         product.SKU,
+		Category:    string(product.Category),
 		Stock:       product.Stock,
 		CreatedAt:   product.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt:   product.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),

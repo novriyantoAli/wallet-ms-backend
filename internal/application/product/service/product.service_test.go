@@ -135,6 +135,7 @@ func TestProductService_CreateProduct(t *testing.T) {
 				assert.Equal(t, tt.req.Price, resp.Price)
 				assert.NotEmpty(t, resp.SKU) // SKU should be auto-generated
 				assert.Equal(t, tt.expectCategory, resp.Category)
+				assert.Equal(t, "inactive", resp.Status) // New products should have inactive status
 
 				// Verify WiFi product was created if category is wifi
 				if tt.req.Category == "wifi" {
@@ -304,10 +305,12 @@ func TestProductService_UpdateProduct(t *testing.T) {
 	svc := NewProductService(repo, wifiRepo, logger)
 
 	product := &entity.Product{
-		Name:  "Original Name",
-		Price: 5000,
-		SKU:   "UPDATE-TEST",
-		Stock: 10,
+		Name:     "Original Name",
+		Price:    5000,
+		SKU:      "UPDATE-TEST",
+		Stock:    10,
+		Category: entity.ProductCategoryWiFi,
+		Status:   entity.ProductStatusActive,
 	}
 	err := repo.Create(product)
 	require.NoError(t, err)
@@ -330,6 +333,14 @@ func TestProductService_UpdateProduct(t *testing.T) {
 			expectErr: false,
 		},
 		{
+			name: "update product status to inactive",
+			id:   product.ID,
+			req: &dto.UpdateProductRequest{
+				Status: "inactive",
+			},
+			expectErr: false,
+		},
+		{
 			name:      "update non-existent product",
 			id:        999,
 			req:       &dto.UpdateProductRequest{Name: "Test"},
@@ -347,9 +358,18 @@ func TestProductService_UpdateProduct(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.NotNil(t, resp)
-				assert.Equal(t, "Updated Name", resp.Name)
-				assert.Equal(t, 6000.0, resp.Price)
-				assert.Equal(t, 20, resp.Stock)
+
+				// For update product successfully test
+				if tt.name == "update product successfully" {
+					assert.Equal(t, "Updated Name", resp.Name)
+					assert.Equal(t, 6000.0, resp.Price)
+					assert.Equal(t, 20, resp.Stock)
+				}
+
+				// For update status test
+				if tt.name == "update product status to inactive" {
+					assert.Equal(t, "inactive", resp.Status)
+				}
 			}
 		})
 	}

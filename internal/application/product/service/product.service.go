@@ -17,7 +17,9 @@ type ProductService interface {
 	GetProductByID(id uint) (*dto.ProductResponse, error)
 	GetProductBySKU(sku string) (*dto.ProductResponse, error)
 	GetProducts(filter *dto.ProductFilter) (*dto.ProductListResponse, error)
+	GetActiveProducts(filter *dto.ProductFilter) (*dto.ProductListResponse, error)
 	UpdateProduct(id uint, req *dto.UpdateProductRequest) (*dto.ProductResponse, error)
+	UpdateProductStatus(id uint, status string) (*dto.ProductResponse, error)
 	DeleteProduct(id uint) error
 }
 
@@ -52,6 +54,7 @@ func (s *productService) CreateProduct(req *dto.CreateProductRequest) (*dto.Prod
 		Price:       req.Price,
 		SKU:         sku,
 		Category:    entity.ProductCategory(req.Category),
+		Status:      entity.ProductStatusInactive, // Default status is inactive
 		Stock:       req.Stock,
 	}
 
@@ -143,6 +146,29 @@ func (s *productService) GetProducts(filter *dto.ProductFilter) (*dto.ProductLis
 	}, nil
 }
 
+func (s *productService) GetActiveProducts(filter *dto.ProductFilter) (*dto.ProductListResponse, error) {
+	products, total, err := s.repo.GetActiveProducts(filter)
+	if err != nil {
+		s.logger.Error("Failed to get active products", zap.Error(err))
+		return nil, err
+	}
+
+	responses := make([]dto.ProductResponse, len(products))
+	for i, product := range products {
+		responses[i] = *s.entityToResponse(&product)
+	}
+
+	totalPages := (int(total) + filter.Limit - 1) / filter.Limit
+
+	return &dto.ProductListResponse{
+		Data:       responses,
+		Total:      total,
+		Page:       filter.Page,
+		Limit:      filter.Limit,
+		TotalPages: totalPages,
+	}, nil
+}
+
 func (s *productService) UpdateProduct(id uint, req *dto.UpdateProductRequest) (*dto.ProductResponse, error) {
 	product, err := s.repo.GetByID(id)
 	if err != nil {
@@ -166,6 +192,9 @@ func (s *productService) UpdateProduct(id uint, req *dto.UpdateProductRequest) (
 	if req.Price > 0 {
 		product.Price = req.Price
 	}
+	if req.Status != "" {
+		product.Status = entity.ProductStatus(req.Status)
+	}
 	if req.Stock >= 0 {
 		product.Stock = req.Stock
 	}
@@ -174,6 +203,33 @@ func (s *productService) UpdateProduct(id uint, req *dto.UpdateProductRequest) (
 		s.logger.Error("Failed to update product", zap.Error(err), zap.Uint("id", id))
 		return nil, err
 	}
+
+	return s.entityToResponse(product), nil
+}
+
+func (s *productService) UpdateProductStatus(id uint, status string) (*dto.ProductResponse, error) {
+	// Validate status value
+	if status != "active" && status != "inactive" {
+		return nil, errors.New("invalid status: must be 'active' or 'inactive'")
+	}
+
+	product, err := s.repo.GetByID(id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("product not found")
+		}
+		s.logger.Error("Failed to get product", zap.Error(err), zap.Uint("id", id))
+		return nil, err
+	}
+
+	product.Status = entity.ProductStatus(status)
+
+	if err := s.repo.Update(product); err != nil {
+		s.logger.Error("Failed to update product status", zap.Error(err), zap.Uint("id", id))
+		return nil, err
+	}
+
+	s.logger.Info("Product status updated successfully", zap.Uint("id", id), zap.String("status", status))
 
 	return s.entityToResponse(product), nil
 }
@@ -208,6 +264,7 @@ func (s *productService) entityToResponse(product *entity.Product) *dto.ProductR
 		Price:       product.Price,
 		SKU:         product.SKU,
 		Category:    string(product.Category),
+		Status:      string(product.Status),
 		Stock:       product.Stock,
 		CreatedAt:   product.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt:   product.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),

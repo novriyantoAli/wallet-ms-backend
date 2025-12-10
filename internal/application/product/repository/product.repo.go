@@ -13,6 +13,7 @@ type ProductRepository interface {
 	GetByID(id uint) (*entity.Product, error)
 	GetBySKU(sku string) (*entity.Product, error)
 	GetAll(filter *dto.ProductFilter) ([]entity.Product, int64, error)
+	GetActiveProducts(filter *dto.ProductFilter) ([]entity.Product, int64, error)
 	Update(product *entity.Product) error
 	Delete(id uint) error
 }
@@ -85,6 +86,30 @@ func (r *productRepository) GetAll(filter *dto.ProductFilter) ([]entity.Product,
 	offset := (filter.Page - 1) * filter.Limit
 	if err := query.Offset(offset).Limit(filter.Limit).Find(&products).Error; err != nil {
 		r.logger.Error("Failed to get products", zap.Error(err))
+		return nil, 0, err
+	}
+
+	return products, total, nil
+}
+
+func (r *productRepository) GetActiveProducts(filter *dto.ProductFilter) ([]entity.Product, int64, error) {
+	var products []entity.Product
+	var total int64
+
+	query := r.db.Where("status = ?", entity.ProductStatusActive)
+
+	if filter.SKU != "" {
+		query = query.Where("sku = ?", filter.SKU)
+	}
+
+	if err := query.Model(&entity.Product{}).Count(&total).Error; err != nil {
+		r.logger.Error("Failed to count active products", zap.Error(err))
+		return nil, 0, err
+	}
+
+	offset := (filter.Page - 1) * filter.Limit
+	if err := query.Offset(offset).Limit(filter.Limit).Find(&products).Error; err != nil {
+		r.logger.Error("Failed to get active products", zap.Error(err))
 		return nil, 0, err
 	}
 

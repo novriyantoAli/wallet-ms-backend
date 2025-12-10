@@ -293,9 +293,11 @@ func TestProductHandler_UpdateProduct(t *testing.T) {
 	// Create test product
 	repo := repository.NewProductRepository(db, zap.NewNop())
 	product := &entity.Product{
-		Name:  "Original Name",
-		Price: 5000,
-		SKU:   "UPDATE-001",
+		Name:     "Original Name",
+		Price:    5000,
+		SKU:      "UPDATE-001",
+		Category: entity.ProductCategoryWiFi,
+		Status:   entity.ProductStatusInactive,
 	}
 	err := repo.Create(product)
 	require.NoError(t, err)
@@ -312,6 +314,14 @@ func TestProductHandler_UpdateProduct(t *testing.T) {
 			req: dto.UpdateProductRequest{
 				Name:  "Updated Name",
 				Price: 6000,
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:      "update product status to inactive",
+			productID: "1",
+			req: dto.UpdateProductRequest{
+				Status: "inactive",
 			},
 			expectedStatus: http.StatusOK,
 		},
@@ -385,6 +395,79 @@ func TestProductHandler_DeleteProduct(t *testing.T) {
 			handler.DeleteProduct(c)
 
 			assert.Equal(t, tt.expectedStatus, w.Code)
+		})
+	}
+}
+
+func TestProductHandler_UpdateProductStatus(t *testing.T) {
+	handler, db := setupProductHandlerForTest(t)
+
+	// Create a test product
+	product := &entity.Product{
+		Name:        "WiFi 10GB",
+		Description: "WiFi package",
+		Price:       50000,
+		SKU:         "WIFI-001",
+		Category:    entity.ProductCategoryWiFi,
+		Status:      entity.ProductStatusInactive,
+		Stock:       100,
+	}
+	err := db.Create(product).Error
+	require.NoError(t, err)
+
+	tests := []struct {
+		name           string
+		productID      string
+		requestBody    dto.UpdateProductStatusRequest
+		expectedStatus int
+		expectError    bool
+	}{
+		{
+			name:      "update product status to active successfully",
+			productID: "1",
+			requestBody: dto.UpdateProductStatusRequest{
+				Status: "active",
+			},
+			expectedStatus: http.StatusOK,
+			expectError:    false,
+		},
+		{
+			name:      "update product status to inactive successfully",
+			productID: "1",
+			requestBody: dto.UpdateProductStatusRequest{
+				Status: "inactive",
+			},
+			expectedStatus: http.StatusOK,
+			expectError:    false,
+		},
+		{
+			name:           "update status for non-existent product",
+			productID:      "999",
+			requestBody:    dto.UpdateProductStatusRequest{Status: "active"},
+			expectedStatus: http.StatusNotFound,
+			expectError:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body, _ := json.Marshal(tt.requestBody)
+			req := httptest.NewRequest("PUT", "/api/v1/products/"+tt.productID+"/status", bytes.NewBuffer(body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request = req
+			c.Params = append(c.Params, gin.Param{Key: "id", Value: tt.productID})
+
+			handler.UpdateProductStatus(c)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+			if !tt.expectError {
+				var response dto.ProductResponse
+				err := json.Unmarshal(w.Body.Bytes(), &response)
+				assert.NoError(t, err)
+				assert.Equal(t, tt.requestBody.Status, response.Status)
+			}
 		})
 	}
 }

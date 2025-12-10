@@ -157,6 +157,50 @@ func (h *ProductHandler) ListProducts(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
+// ListActiveProducts godoc
+// @Summary List active products with pagination
+// @Description Get a paginated list of only active products
+// @Tags products
+// @Accept json
+// @Produce json
+// @Param page query int false "Page number" default(1)
+// @Param limit query int false "Items per page" default(10)
+// @Param sku query string false "Filter by SKU"
+// @Success 200 {object} dto.ProductListResponse
+// @Failure 500 {object} map[string]interface{}
+// @Router /api/v1/products/active [get]
+func (h *ProductHandler) ListActiveProducts(c *gin.Context) {
+	page := 1
+	limit := 10
+
+	if pageStr := c.Query("page"); pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+
+	if limitStr := c.Query("limit"); limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
+			limit = l
+		}
+	}
+
+	filter := &dto.ProductFilter{
+		SKU:   c.Query("sku"),
+		Page:  page,
+		Limit: limit,
+	}
+
+	resp, err := h.service.GetActiveProducts(filter)
+	if err != nil {
+		h.logger.Error("Failed to list active products", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
 // UpdateProduct godoc
 // @Summary Update product information
 // @Description Update product details by ID
@@ -193,6 +237,49 @@ func (h *ProductHandler) UpdateProduct(c *gin.Context) {
 			return
 		}
 		h.logger.Error("Failed to update product", zap.Error(err), zap.Uint("id", uint(id)))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
+// UpdateProductStatus godoc
+// @Summary Update product status
+// @Description Update a product's status (active or inactive)
+// @Tags products
+// @Accept json
+// @Produce json
+// @Param id path int true "Product ID"
+// @Param request body dto.UpdateProductStatusRequest true "Update product status request"
+// @Success 200 {object} dto.ProductResponse
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /api/v1/products/{id}/status [put]
+func (h *ProductHandler) UpdateProductStatus(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID"})
+		return
+	}
+
+	var req dto.UpdateProductStatusRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.Warn("Invalid update product status request", zap.Error(err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	resp, err := h.service.UpdateProductStatus(uint(id), req.Status)
+	if err != nil {
+		if err.Error() == "product not found" {
+			h.logger.Warn("Product not found", zap.Uint("id", uint(id)))
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		h.logger.Error("Failed to update product status", zap.Error(err), zap.Uint("id", uint(id)))
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -240,7 +327,9 @@ func (h *ProductHandler) RegisterRoutes(api *gin.RouterGroup) {
 	{
 		products.POST("", h.CreateProduct)
 		products.GET("", h.ListProducts)
+		products.GET("/active", h.ListActiveProducts)
 		products.GET("/:id", h.GetProduct)
+		products.PUT("/:id/status", h.UpdateProductStatus)
 		products.PUT("/:id", h.UpdateProduct)
 		products.DELETE("/:id", h.DeleteProduct)
 		products.GET("/sku/:sku", h.GetProductBySKU)

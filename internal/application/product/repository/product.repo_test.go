@@ -37,31 +37,33 @@ func TestProductRepository_Create(t *testing.T) {
 		expectErr bool
 	}{
 		{
-			name: "create valid wifi product",
+			name: "create valid wifi product with active status",
 			product: &entity.Product{
 				Name:        "WiFi 10GB",
 				Description: "WiFi package",
 				Price:       50000,
 				SKU:         "WIFI-001",
 				Category:    entity.ProductCategoryWiFi,
+				Status:      entity.ProductStatusActive,
 				Stock:       100,
 			},
 			expectErr: false,
 		},
 		{
-			name: "create valid pulsa product",
+			name: "create valid pulsa product with inactive status",
 			product: &entity.Product{
 				Name:        "Pulsa 50k",
 				Description: "Pulsa package",
 				Price:       50000,
 				SKU:         "PULSA-001",
 				Category:    entity.ProductCategoryPulsa,
+				Status:      entity.ProductStatusInactive,
 				Stock:       200,
 			},
 			expectErr: false,
 		},
 		{
-			name: "create product with minimum fields",
+			name: "create product with minimum fields and default status",
 			product: &entity.Product{
 				Name:     "Phone",
 				Price:    5000,
@@ -81,13 +83,19 @@ func TestProductRepository_Create(t *testing.T) {
 				assert.NoError(t, err)
 				assert.NotZero(t, tt.product.ID)
 
-				// Verify it was saved with all fields including category
+				// Verify it was saved with all fields including status
 				saved, err := repo.GetByID(tt.product.ID)
 				assert.NoError(t, err)
 				assert.Equal(t, tt.product.Name, saved.Name)
 				assert.Equal(t, tt.product.Price, saved.Price)
 				assert.Equal(t, tt.product.Category, saved.Category)
 				assert.Equal(t, tt.product.SKU, saved.SKU)
+				// Verify status is set (either specified or default active)
+				expectedStatus := tt.product.Status
+				if expectedStatus == "" {
+					expectedStatus = entity.ProductStatusInactive
+				}
+				assert.Equal(t, expectedStatus, saved.Status)
 			}
 		})
 	}
@@ -265,7 +273,7 @@ func TestProductRepository_Update(t *testing.T) {
 		expectErr bool
 	}{
 		{
-			name: "update product fields",
+			name: "update product fields including status",
 			product: &entity.Product{
 				ID:       product.ID,
 				Name:     "Updated Name",
@@ -273,6 +281,7 @@ func TestProductRepository_Update(t *testing.T) {
 				SKU:      "UPDATE-TEST",
 				Stock:    20,
 				Category: entity.ProductCategoryPulsa,
+				Status:   entity.ProductStatusInactive,
 			},
 			expectErr: false,
 		},
@@ -287,13 +296,14 @@ func TestProductRepository_Update(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 
-				// Verify the update
+				// Verify the update including status
 				saved, err := repo.GetByID(tt.product.ID)
 				assert.NoError(t, err)
 				assert.Equal(t, "Updated Name", saved.Name)
 				assert.Equal(t, 6000.0, saved.Price)
 				assert.Equal(t, 20, saved.Stock)
 				assert.Equal(t, entity.ProductCategoryPulsa, saved.Category)
+				assert.Equal(t, entity.ProductStatusInactive, saved.Status)
 			}
 		})
 	}

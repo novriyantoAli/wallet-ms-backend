@@ -26,7 +26,12 @@ type UpdateProductRequest struct {
 	Name        string  `json:"name" binding:"omitempty,min=1,max=255"`
 	Description string  `json:"description" binding:"omitempty,max=1000"`
 	Price       float64 `json:"price" binding:"omitempty,gt=0"`
+	Status      string  `json:"status" binding:"omitempty,oneof=active inactive"`
 	Stock       int     `json:"stock" binding:"omitempty,min=0"`
+}
+
+type UpdateProductStatusRequest struct {
+	Status string `json:"status" binding:"required,oneof=active inactive"`
 }
 
 type ProductResponse struct {
@@ -36,6 +41,7 @@ type ProductResponse struct {
 	Price       float64 `json:"price"`
 	SKU         string  `json:"sku"`
 	Category    string  `json:"category"`
+	Status      string  `json:"status"`
 	Stock       int     `json:"stock"`
 	CreatedAt   string  `json:"created_at"`
 	UpdatedAt   string  `json:"updated_at"`

@@ -10,6 +10,7 @@ import (
 	userEntity "github.com/novriyantoAli/wallet-ms-backend/internal/application/user/entity"
 	walletDto "github.com/novriyantoAli/wallet-ms-backend/internal/application/wallet/dto"
 	walletEntity "github.com/novriyantoAli/wallet-ms-backend/internal/application/wallet/entity"
+	walletRepository "github.com/novriyantoAli/wallet-ms-backend/internal/application/wallet/repository"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/mock"
@@ -252,6 +253,30 @@ func (m *MockWalletRepository) Delete(id uint) error {
 func (m *MockWalletRepository) UpdateBalance(id uint, amount float64) error {
 	args := m.Called(id, amount)
 	return args.Error(0)
+}
+
+func (m *MockWalletRepository) GetByIDWithUser(id uint) (*walletRepository.WalletWithUserData, error) {
+	args := m.Called(id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*walletRepository.WalletWithUserData), args.Error(1)
+}
+
+func (m *MockWalletRepository) GetByUserIDWithUser(userID uint) (*walletRepository.WalletWithUserData, error) {
+	args := m.Called(userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*walletRepository.WalletWithUserData), args.Error(1)
+}
+
+func (m *MockWalletRepository) GetAllWithUser(filter *walletDto.WalletFilter) ([]walletRepository.WalletWithUserData, int64, error) {
+	args := m.Called(filter)
+	if args.Get(0) == nil {
+		return nil, 0, args.Error(2)
+	}
+	return args.Get(0).([]walletRepository.WalletWithUserData), args.Get(1).(int64), args.Error(2)
 }
 
 // MockRedisClient is a mock implementation of redis.Client

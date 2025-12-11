@@ -20,7 +20,7 @@ func TestWalletService_CreateTransaction(t *testing.T) {
 		mockWalletRepo := &testutil.MockWalletRepository{}
 		mockTransactionRepo := &testutil.MockTransactionRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewWalletService(mockWalletRepo, mockTransactionRepo, testutil.NewMockUserService(), logger)
+		service := NewWalletService(nil, mockWalletRepo, mockTransactionRepo, testutil.NewMockUserService(), logger)
 
 		wallet := &entity.Wallet{
 			ID:      1,
@@ -61,7 +61,7 @@ func TestWalletService_CreateTransaction(t *testing.T) {
 		mockWalletRepo := &testutil.MockWalletRepository{}
 		mockTransactionRepo := &testutil.MockTransactionRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewWalletService(mockWalletRepo, mockTransactionRepo, testutil.NewMockUserService(), logger)
+		service := NewWalletService(nil, mockWalletRepo, mockTransactionRepo, testutil.NewMockUserService(), logger)
 
 		wallet := &entity.Wallet{
 			ID:      1,
@@ -99,7 +99,7 @@ func TestWalletService_CreateTransaction(t *testing.T) {
 		mockWalletRepo := &testutil.MockWalletRepository{}
 		mockTransactionRepo := &testutil.MockTransactionRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewWalletService(mockWalletRepo, mockTransactionRepo, testutil.NewMockUserService(), logger)
+		service := NewWalletService(nil, mockWalletRepo, mockTransactionRepo, testutil.NewMockUserService(), logger)
 
 		wallet := &entity.Wallet{
 			ID:      1,
@@ -131,7 +131,7 @@ func TestWalletService_CreateTransaction(t *testing.T) {
 		mockWalletRepo := &testutil.MockWalletRepository{}
 		mockTransactionRepo := &testutil.MockTransactionRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewWalletService(mockWalletRepo, mockTransactionRepo, testutil.NewMockUserService(), logger)
+		service := NewWalletService(nil, mockWalletRepo, mockTransactionRepo, testutil.NewMockUserService(), logger)
 
 		req := &dto.CreateTransactionRequest{
 			WalletID:    1,
@@ -154,7 +154,7 @@ func TestWalletService_CreateTransaction(t *testing.T) {
 		mockWalletRepo := &testutil.MockWalletRepository{}
 		mockTransactionRepo := &testutil.MockTransactionRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewWalletService(mockWalletRepo, mockTransactionRepo, testutil.NewMockUserService(), logger)
+		service := NewWalletService(nil, mockWalletRepo, mockTransactionRepo, testutil.NewMockUserService(), logger)
 
 		req := &dto.CreateTransactionRequest{
 			WalletID:    999,
@@ -181,7 +181,7 @@ func TestWalletService_GetTransactions(t *testing.T) {
 		mockWalletRepo := &testutil.MockWalletRepository{}
 		mockTransactionRepo := &testutil.MockTransactionRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewWalletService(mockWalletRepo, mockTransactionRepo, testutil.NewMockUserService(), logger)
+		service := NewWalletService(nil, mockWalletRepo, mockTransactionRepo, testutil.NewMockUserService(), logger)
 
 		transactions := []entity.WalletTransaction{
 			{
@@ -224,7 +224,7 @@ func TestWalletService_GetTransactions(t *testing.T) {
 		mockWalletRepo := &testutil.MockWalletRepository{}
 		mockTransactionRepo := &testutil.MockTransactionRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewWalletService(mockWalletRepo, mockTransactionRepo, testutil.NewMockUserService(), logger)
+		service := NewWalletService(nil, mockWalletRepo, mockTransactionRepo, testutil.NewMockUserService(), logger)
 
 		filter := &dto.TransactionFilter{
 			WalletID: 1,
@@ -249,7 +249,7 @@ func TestWalletService_GetTransactions(t *testing.T) {
 		mockWalletRepo := &testutil.MockWalletRepository{}
 		mockTransactionRepo := &testutil.MockTransactionRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewWalletService(mockWalletRepo, mockTransactionRepo, testutil.NewMockUserService(), logger)
+		service := NewWalletService(nil, mockWalletRepo, mockTransactionRepo, testutil.NewMockUserService(), logger)
 
 		filter := &dto.TransactionFilter{
 			WalletID: 1,
@@ -274,7 +274,7 @@ func TestWalletService_GetTransactionByID(t *testing.T) {
 		mockWalletRepo := &testutil.MockWalletRepository{}
 		mockTransactionRepo := &testutil.MockTransactionRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewWalletService(mockWalletRepo, mockTransactionRepo, testutil.NewMockUserService(), logger)
+		service := NewWalletService(nil, mockWalletRepo, mockTransactionRepo, testutil.NewMockUserService(), logger)
 
 		transaction := &entity.WalletTransaction{
 			ID:           1,
@@ -305,7 +305,7 @@ func TestWalletService_GetTransactionByID(t *testing.T) {
 		mockWalletRepo := &testutil.MockWalletRepository{}
 		mockTransactionRepo := &testutil.MockTransactionRepository{}
 		logger := testutil.NewSilentLogger()
-		service := NewWalletService(mockWalletRepo, mockTransactionRepo, testutil.NewMockUserService(), logger)
+		service := NewWalletService(nil, mockWalletRepo, mockTransactionRepo, testutil.NewMockUserService(), logger)
 
 		mockTransactionRepo.On("GetByID", uint(999)).Return(nil, gorm.ErrRecordNotFound)
 

@@ -11,6 +11,7 @@ import (
 
 	"go.uber.org/zap"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type WalletService interface {
@@ -27,6 +28,7 @@ type WalletService interface {
 }
 
 type walletService struct {
+	db              *gorm.DB
 	repo            repository.WalletRepository
 	transactionRepo repository.TransactionRepository
 	userService     userservice.UserService
@@ -34,12 +36,14 @@ type walletService struct {
 }
 
 func NewWalletService(
+	db *gorm.DB,
 	repo repository.WalletRepository,
 	transactionRepo repository.TransactionRepository,
 	userService userservice.UserService,
 	logger *zap.Logger,
 ) WalletService {
 	return &walletService{
+		db:              db,
 		repo:            repo,
 		transactionRepo: transactionRepo,
 		userService:     userService,
@@ -77,11 +81,19 @@ func (s *walletService) CreateWallet(req *dto.CreateWalletRequest) (*dto.WalletR
 		return nil, err
 	}
 
-	return s.entityToResponse(wallet), nil
+	// Fetch wallet with user data
+	walletWithUser, err := s.repo.GetByUserIDWithUser(req.UserID)
+	if err != nil {
+		s.logger.Error("Failed to get wallet with user data after creation", zap.Uint("user_id", req.UserID), zap.Error(err))
+		// Return basic response without user data if fetch fails
+		return s.entityToResponse(wallet), nil
+	}
+
+	return s.walletWithUserToResponse(walletWithUser), nil
 }
 
 func (s *walletService) GetWalletByID(id uint) (*dto.WalletResponse, error) {
-	wallet, err := s.repo.GetByID(id)
+	walletWithUser, err := s.repo.GetByIDWithUser(id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("wallet not found")
@@ -89,11 +101,11 @@ func (s *walletService) GetWalletByID(id uint) (*dto.WalletResponse, error) {
 		return nil, err
 	}
 
-	return s.entityToResponse(wallet), nil
+	return s.walletWithUserToResponse(walletWithUser), nil
 }
 
 func (s *walletService) GetWalletByUserID(userID uint) (*dto.WalletResponse, error) {
-	wallet, err := s.repo.GetByUserID(userID)
+	walletWithUser, err := s.repo.GetByUserIDWithUser(userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("wallet not found for user")
@@ -101,7 +113,7 @@ func (s *walletService) GetWalletByUserID(userID uint) (*dto.WalletResponse, err
 		return nil, err
 	}
 
-	return s.entityToResponse(wallet), nil
+	return s.walletWithUserToResponse(walletWithUser), nil
 }
 
 func (s *walletService) GetWallets(filter *dto.WalletFilter) (*dto.WalletListResponse, error) {
@@ -112,14 +124,14 @@ func (s *walletService) GetWallets(filter *dto.WalletFilter) (*dto.WalletListRes
 		filter.PageSize = 10
 	}
 
-	wallets, totalCount, err := s.repo.GetAll(filter)
+	walletsWithUser, totalCount, err := s.repo.GetAllWithUser(filter)
 	if err != nil {
 		return nil, err
 	}
 
-	responses := make([]dto.WalletResponse, 0, len(wallets))
-	for _, wallet := range wallets {
-		responses = append(responses, *s.entityToResponse(&wallet))
+	responses := make([]dto.WalletResponse, 0, len(walletsWithUser))
+	for _, wallet := range walletsWithUser {
+		responses = append(responses, *s.walletWithUserToResponse(&wallet))
 	}
 
 	return &dto.WalletListResponse{
@@ -131,8 +143,17 @@ func (s *walletService) GetWallets(filter *dto.WalletFilter) (*dto.WalletListRes
 }
 
 func (s *walletService) UpdateWalletBalance(walletID uint, req *dto.UpdateWalletBalanceRequest) (*dto.WalletBalanceResponse, error) {
-	wallet, err := s.repo.GetByID(walletID)
-	if err != nil {
+	// Start database transaction for atomicity
+	tx := s.db.Begin()
+	if tx.Error != nil {
+		s.logger.Error("Failed to begin transaction", zap.Error(tx.Error))
+		return nil, errors.New("failed to begin transaction")
+	}
+
+	// Get wallet with row lock to prevent concurrent updates
+	var wallet entity.Wallet
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&wallet, walletID).Error; err != nil {
+		tx.Rollback()
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("wallet not found")
 		}
@@ -141,29 +162,59 @@ func (s *walletService) UpdateWalletBalance(walletID uint, req *dto.UpdateWallet
 
 	previousBalance := wallet.Balance
 
-	// Calculate new balance based on transaction type
+	// Determine transaction type for transaction record
+	var transactionType entity.TransactionType
 	if req.TransactionType == "credit" {
 		wallet.Balance += req.Amount
+		transactionType = entity.TransactionTypeDeposit
 	} else if req.TransactionType == "debit" {
 		// Check if wallet has sufficient balance
 		if wallet.Balance < req.Amount {
+			tx.Rollback()
 			s.logger.Warn("Insufficient balance", zap.Uint("wallet_id", walletID), zap.Float64("balance", wallet.Balance), zap.Float64("amount", req.Amount))
 			return nil, errors.New("insufficient balance")
 		}
 		wallet.Balance -= req.Amount
+		transactionType = entity.TransactionTypeWithdrawal
 	} else {
+		tx.Rollback()
 		return nil, errors.New("invalid transaction type")
 	}
 
 	wallet.UpdatedAt = time.Now()
 
-	err = s.repo.Update(wallet)
-	if err != nil {
+	// Update wallet within transaction
+	if err := tx.Save(&wallet).Error; err != nil {
+		tx.Rollback()
 		s.logger.Error("Failed to update wallet balance", zap.Uint("wallet_id", walletID), zap.Error(err))
 		return nil, err
 	}
 
-	s.logger.Info("Wallet balance updated",
+	// Create transaction record within transaction
+	transaction := &entity.WalletTransaction{
+		WalletID:     walletID,
+		Type:         transactionType,
+		Amount:       req.Amount,
+		Status:       entity.TransactionStatusCompleted,
+		Description:  req.Description,
+		BalanceAfter: wallet.Balance,
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
+
+	if err := tx.Create(transaction).Error; err != nil {
+		tx.Rollback()
+		s.logger.Error("Failed to create transaction record", zap.Uint("wallet_id", walletID), zap.Error(err))
+		return nil, err
+	}
+
+	// Commit transaction
+	if err := tx.Commit().Error; err != nil {
+		s.logger.Error("Failed to commit transaction", zap.Uint("wallet_id", walletID), zap.Error(err))
+		return nil, errors.New("failed to commit transaction")
+	}
+
+	s.logger.Info("Wallet balance updated atomically",
 		zap.Uint("wallet_id", walletID),
 		zap.Float64("previous_balance", previousBalance),
 		zap.Float64("new_balance", wallet.Balance),
@@ -287,11 +338,35 @@ func (s *walletService) entityToResponse(wallet *entity.Wallet) *dto.WalletRespo
 	return &dto.WalletResponse{
 		ID:        wallet.ID,
 		UserID:    wallet.UserID,
+		User:      nil, // No user data when using this method
 		Balance:   wallet.Balance,
 		Currency:  wallet.Currency,
 		Status:    wallet.Status.String(),
 		CreatedAt: wallet.CreatedAt,
 		UpdatedAt: wallet.UpdatedAt,
+	}
+}
+
+func (s *walletService) walletWithUserToResponse(walletWithUser *repository.WalletWithUserData) *dto.WalletResponse {
+	var userInfo *dto.UserInfo
+	if walletWithUser.UserName != "" || walletWithUser.UserEmail != "" {
+		userInfo = &dto.UserInfo{
+			ID:    walletWithUser.UserID,
+			Name:  walletWithUser.UserName,
+			Email: walletWithUser.UserEmail,
+			Level: walletWithUser.UserLevel,
+		}
+	}
+
+	return &dto.WalletResponse{
+		ID:        walletWithUser.ID,
+		UserID:    walletWithUser.UserID,
+		User:      userInfo,
+		Balance:   walletWithUser.Balance,
+		Currency:  walletWithUser.Currency,
+		Status:    walletWithUser.Status,
+		CreatedAt: walletWithUser.CreatedAt,
+		UpdatedAt: walletWithUser.UpdatedAt,
 	}
 }
 

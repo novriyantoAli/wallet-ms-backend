@@ -16,10 +16,19 @@ type UpdateWalletBalanceRequest struct {
 	TransactionType string  `json:"transaction_type" binding:"required,oneof=credit debit"`
 }
 
+// UserInfo contains basic user information for wallet response
+type UserInfo struct {
+	ID    uint   `json:"id"`
+	Name  string `json:"name"`
+	Email string `json:"email"`
+	Level string `json:"level"`
+}
+
 // WalletResponse contains the response for wallet operations
 type WalletResponse struct {
 	ID        uint      `json:"id"`
 	UserID    uint      `json:"user_id"`
+	User      *UserInfo `json:"user"`
 	Balance   float64   `json:"balance"`
 	Currency  string    `json:"currency"`
 	Status    string    `json:"status"`

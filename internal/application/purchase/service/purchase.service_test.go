@@ -53,7 +53,7 @@ func createWalletService(t *testing.T, db *gorm.DB, logger *zap.Logger) walletSe
 		Expiry:    24 * time.Hour,
 	})
 	userSvc := userService.NewUserService(userRepository, walletRepository, jwtManager, logger)
-	return walletService.NewWalletService(walletRepository, transactionRepository, userSvc, logger)
+	return walletService.NewWalletService(db, walletRepository, transactionRepository, userSvc, logger)
 }
 
 func createTestUserWithWallet(t *testing.T, db *gorm.DB, balance float64) (*userEntity.User, *walletEntity.Wallet) {

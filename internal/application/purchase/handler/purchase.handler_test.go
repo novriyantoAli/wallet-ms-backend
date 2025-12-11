@@ -58,7 +58,7 @@ func createWalletServiceForHandler(t *testing.T, db *gorm.DB, zapLogger *zap.Log
 		Expiry:    24 * time.Hour,
 	})
 	userSvc := userService.NewUserService(userRepository, walletRepository, jwtManager, zapLogger)
-	return walletService.NewWalletService(walletRepository, transactionRepository, userSvc, zapLogger)
+	return walletService.NewWalletService(db, walletRepository, transactionRepository, userSvc, zapLogger)
 }
 
 func setupPurchaseHandlerForTest(t *testing.T) (*PurchaseHandler, *gorm.DB) {

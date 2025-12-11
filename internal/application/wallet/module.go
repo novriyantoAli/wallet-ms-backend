@@ -29,12 +29,13 @@ func provideTransactionRepository(db *gorm.DB, logger *zap.Logger) repository.Tr
 }
 
 func provideWalletService(
+	db *gorm.DB,
 	repo repository.WalletRepository,
 	transactionRepo repository.TransactionRepository,
 	userService userservice.UserService,
 	logger *zap.Logger,
 ) service.WalletService {
-	return service.NewWalletService(repo, transactionRepo, userService, logger)
+	return service.NewWalletService(db, repo, transactionRepo, userService, logger)
 }
 
 func provideWalletHandler(service service.WalletService, logger *zap.Logger) *handler.WalletHandler {

@@ -10,9 +10,9 @@ type CreateWiFiProductRequest struct {
 }
 
 type UpdateWiFiProductRequest struct {
-	Quota      float64 `json:"quota" binding:"gt=0"`
-	Duration   int     `json:"duration" binding:"gt=0"`
-	SpeedLimit float64 `json:"speed_limit" binding:"gt=0"`
+	Quota      float64 `json:"quota" binding:"min=0"`
+	Duration   int     `json:"duration" binding:"min=0"`
+	SpeedLimit float64 `json:"speed_limit" binding:"min=0"`
 }
 
 type WiFiProductResponse struct {

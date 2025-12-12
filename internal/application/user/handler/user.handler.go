@@ -95,6 +95,7 @@ func (h *UserHandler) GetUser(ctx *gin.Context) {
 // @Produce json
 // @Param name query string false "Filter by name"
 // @Param email query string false "Filter by email"
+// @Param level query string false "Filter by level (user, reseller, admin)"
 // @Param page query int false "Page number" default(1)
 // @Param page_size query int false "Number of items per page" default(10)
 // @Success 200 {object} dto.UserListResponse "List of users"
@@ -369,7 +370,7 @@ func (h *UserHandler) RegisterRoutes(api *gin.RouterGroup) {
 
 // Register godoc
 // @Summary Register a new user
-// @Description Create a new user account with name, email and password
+// @Description Create a new user account with name, email, password and optional level (user/reseller/admin, defaults to user)
 // @Tags auth
 // @Accept json
 // @Produce json

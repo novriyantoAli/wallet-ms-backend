@@ -142,18 +142,20 @@ func TestWalletService_GetWalletByID(t *testing.T) {
 		logger := testutil.NewSilentLogger()
 		service := NewWalletService(nil, mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
 
-		wallet := &entity.Wallet{
+		walletWithUser := &repository.WalletWithUserData{
 			ID:        1,
 			UserID:    1,
 			Balance:   100000,
 			Currency:  "IDR",
-			Status:    entity.WalletStatusActive,
+			Status:    "active",
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
+			UserName:  "Test User",
+			UserEmail: "test@example.com",
 		}
 
-		// Mock expectations
-		mockRepo.On("GetByID", uint(1)).Return(wallet, nil)
+		// Mock expectations - use GetByIDWithUser instead of GetByID
+		mockRepo.On("GetByIDWithUser", uint(1)).Return(walletWithUser, nil)
 
 		// Execute
 		result, err := service.GetWalletByID(1)
@@ -161,9 +163,9 @@ func TestWalletService_GetWalletByID(t *testing.T) {
 		// Assert
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
-		assert.Equal(t, wallet.ID, result.ID)
-		assert.Equal(t, wallet.UserID, result.UserID)
-		assert.Equal(t, wallet.Balance, result.Balance)
+		assert.Equal(t, walletWithUser.ID, result.ID)
+		assert.Equal(t, walletWithUser.UserID, result.UserID)
+		assert.Equal(t, walletWithUser.Balance, result.Balance)
 		mockRepo.AssertExpectations(t)
 	})
 
@@ -175,7 +177,7 @@ func TestWalletService_GetWalletByID(t *testing.T) {
 		service := NewWalletService(nil, mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
 
 		// Mock expectations
-		mockRepo.On("GetByID", uint(999)).Return(nil, gorm.ErrRecordNotFound)
+		mockRepo.On("GetByIDWithUser", uint(999)).Return(nil, gorm.ErrRecordNotFound)
 
 		// Execute
 		_, err := service.GetWalletByID(999)
@@ -194,18 +196,20 @@ func TestWalletService_GetWalletByUserID(t *testing.T) {
 		logger := testutil.NewSilentLogger()
 		service := NewWalletService(nil, mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
 
-		wallet := &entity.Wallet{
+		walletWithUser := &repository.WalletWithUserData{
 			ID:        1,
 			UserID:    1,
 			Balance:   100000,
 			Currency:  "IDR",
-			Status:    entity.WalletStatusActive,
+			Status:    "active",
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
+			UserName:  "Test User",
+			UserEmail: "test@example.com",
 		}
 
 		// Mock expectations
-		mockRepo.On("GetByUserID", uint(1)).Return(wallet, nil)
+		mockRepo.On("GetByUserIDWithUser", uint(1)).Return(walletWithUser, nil)
 
 		// Execute
 		result, err := service.GetWalletByUserID(1)
@@ -213,7 +217,7 @@ func TestWalletService_GetWalletByUserID(t *testing.T) {
 		// Assert
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
-		assert.Equal(t, wallet.ID, result.ID)
+		assert.Equal(t, walletWithUser.ID, result.ID)
 		mockRepo.AssertExpectations(t)
 	})
 }
@@ -224,7 +228,8 @@ func TestWalletService_UpdateWalletBalance(t *testing.T) {
 		mockRepo := &testutil.MockWalletRepository{}
 		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		service := NewWalletService(nil, mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
+		db, _ := testutil.SetupTestDB()
+		service := NewWalletService(db, mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
 
 		wallet := &entity.Wallet{
 			ID:        1,
@@ -262,7 +267,8 @@ func TestWalletService_UpdateWalletBalance(t *testing.T) {
 		mockRepo := &testutil.MockWalletRepository{}
 		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		service := NewWalletService(nil, mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
+		db, _ := testutil.SetupTestDB()
+		service := NewWalletService(db, mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
 
 		wallet := &entity.Wallet{
 			ID:        1,
@@ -299,7 +305,8 @@ func TestWalletService_UpdateWalletBalance(t *testing.T) {
 		mockRepo := &testutil.MockWalletRepository{}
 		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		service := NewWalletService(nil, mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
+		db, _ := testutil.SetupTestDB()
+		service := NewWalletService(db, mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
 
 		wallet := &entity.Wallet{
 			ID:        1,
@@ -705,6 +712,317 @@ func TestWalletService_TransferFunds(t *testing.T) {
 		// Assert
 		assert.Error(t, err)
 		assert.Nil(t, result)
+		mockRepo.AssertExpectations(t)
+	})
+}
+
+func TestWalletService_Transfer(t *testing.T) {
+	t.Run("should reject transfer when sender is regular user", func(t *testing.T) {
+		// Setup
+		mockRepo := &testutil.MockWalletRepository{}
+		mockUserService := &testutil.MockUserService{}
+		mockTxRepo := &testutil.MockTransactionRepository{}
+		logger := testutil.NewSilentLogger()
+		db, _ := testutil.SetupTestDB()
+		service := NewWalletService(db, mockRepo, mockTxRepo, mockUserService, logger)
+
+		senderID := uint(5)
+		recipientID := uint(6)
+
+		senderUserResp := &userDto.UserResponse{
+			ID:    senderID,
+			Name:  "Regular User",
+			Email: "user@example.com",
+			Level: "user",
+		}
+
+		mockUserService.On("GetUserByID", senderID).Return(senderUserResp, nil).Once()
+
+		req := &dto.TransferWalletRequest{
+			RecipientUserID: recipientID,
+			Amount:          50000,
+			Description:     "Should fail",
+		}
+
+		// Execute
+		result, err := service.Transfer(senderID, req)
+
+		// Assert
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		assert.Equal(t, "users cannot transfer funds", err.Error())
+		mockUserService.AssertExpectations(t)
+	})
+
+	t.Run("should return error when sender user not found", func(t *testing.T) {
+		// Setup
+		mockRepo := &testutil.MockWalletRepository{}
+		mockUserService := &testutil.MockUserService{}
+		mockTxRepo := &testutil.MockTransactionRepository{}
+		logger := testutil.NewSilentLogger()
+		db, _ := testutil.SetupTestDB()
+		service := NewWalletService(db, mockRepo, mockTxRepo, mockUserService, logger)
+
+		senderID := uint(7)
+		recipientID := uint(8)
+
+		mockUserService.On("GetUserByID", senderID).Return(nil, errors.New("user not found")).Once()
+
+		req := &dto.TransferWalletRequest{
+			RecipientUserID: recipientID,
+			Amount:          50000,
+			Description:     "Should fail",
+		}
+
+		// Execute
+		result, err := service.Transfer(senderID, req)
+
+		// Assert
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		assert.Equal(t, "sender user not found", err.Error())
+		mockUserService.AssertExpectations(t)
+	})
+
+	t.Run("should return error when recipient user not found", func(t *testing.T) {
+		// Setup
+		mockRepo := &testutil.MockWalletRepository{}
+		mockUserService := &testutil.MockUserService{}
+		mockTxRepo := &testutil.MockTransactionRepository{}
+		logger := testutil.NewSilentLogger()
+		db, _ := testutil.SetupTestDB()
+		service := NewWalletService(db, mockRepo, mockTxRepo, mockUserService, logger)
+
+		senderID := uint(9)
+		recipientID := uint(10)
+
+		senderUserResp := &userDto.UserResponse{
+			ID:    senderID,
+			Name:  "Reseller",
+			Email: "reseller@example.com",
+			Level: "reseller",
+		}
+
+		mockUserService.On("GetUserByID", senderID).Return(senderUserResp, nil).Once()
+		mockUserService.On("GetUserByID", recipientID).Return(nil, errors.New("user not found")).Once()
+
+		req := &dto.TransferWalletRequest{
+			RecipientUserID: recipientID,
+			Amount:          50000,
+			Description:     "Should fail",
+		}
+
+		// Execute
+		result, err := service.Transfer(senderID, req)
+
+		// Assert
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		assert.Equal(t, "recipient user not found", err.Error())
+		mockUserService.AssertExpectations(t)
+	})
+
+	t.Run("should return error when transferring to same user", func(t *testing.T) {
+		// Setup
+		mockRepo := &testutil.MockWalletRepository{}
+		mockUserService := &testutil.MockUserService{}
+		mockTxRepo := &testutil.MockTransactionRepository{}
+		logger := testutil.NewSilentLogger()
+		db, _ := testutil.SetupTestDB()
+		service := NewWalletService(db, mockRepo, mockTxRepo, mockUserService, logger)
+
+		senderID := uint(11)
+
+		senderUserResp := &userDto.UserResponse{
+			ID:    senderID,
+			Name:  "Reseller",
+			Email: "reseller@example.com",
+			Level: "reseller",
+		}
+
+		// GetUserByID is called twice: once for sender, once for recipient (even though same ID)
+		mockUserService.On("GetUserByID", senderID).Return(senderUserResp, nil).Twice()
+
+		req := &dto.TransferWalletRequest{
+			RecipientUserID: senderID,
+			Amount:          50000,
+			Description:     "Self transfer",
+		}
+
+		// Execute
+		result, err := service.Transfer(senderID, req)
+
+		// Assert
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		assert.Equal(t, "cannot transfer to the same user", err.Error())
+		mockUserService.AssertExpectations(t)
+	})
+
+	t.Run("should return error when sender wallet not found", func(t *testing.T) {
+		// Setup
+		mockRepo := &testutil.MockWalletRepository{}
+		mockUserService := &testutil.MockUserService{}
+		mockTxRepo := &testutil.MockTransactionRepository{}
+		logger := testutil.NewSilentLogger()
+		db, _ := testutil.SetupTestDB()
+		service := NewWalletService(db, mockRepo, mockTxRepo, mockUserService, logger)
+
+		senderID := uint(12)
+		recipientID := uint(13)
+
+		senderUserResp := &userDto.UserResponse{
+			ID:    senderID,
+			Name:  "Reseller",
+			Email: "reseller@example.com",
+			Level: "reseller",
+		}
+
+		recipientUserResp := &userDto.UserResponse{
+			ID:    recipientID,
+			Name:  "Recipient",
+			Email: "recipient@example.com",
+			Level: "user",
+		}
+
+		mockUserService.On("GetUserByID", senderID).Return(senderUserResp, nil).Once()
+		mockUserService.On("GetUserByID", recipientID).Return(recipientUserResp, nil).Once()
+		mockRepo.On("GetByUserID", senderID).Return(nil, gorm.ErrRecordNotFound).Once()
+
+		req := &dto.TransferWalletRequest{
+			RecipientUserID: recipientID,
+			Amount:          50000,
+			Description:     "Should fail",
+		}
+
+		// Execute
+		result, err := service.Transfer(senderID, req)
+
+		// Assert
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		assert.Equal(t, "sender wallet not found", err.Error())
+		mockUserService.AssertExpectations(t)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("should return error when recipient wallet not found", func(t *testing.T) {
+		// Setup
+		mockRepo := &testutil.MockWalletRepository{}
+		mockUserService := &testutil.MockUserService{}
+		mockTxRepo := &testutil.MockTransactionRepository{}
+		logger := testutil.NewSilentLogger()
+		db, _ := testutil.SetupTestDB()
+		service := NewWalletService(db, mockRepo, mockTxRepo, mockUserService, logger)
+
+		senderID := uint(14)
+		recipientID := uint(15)
+
+		senderUserResp := &userDto.UserResponse{
+			ID:    senderID,
+			Name:  "Reseller",
+			Email: "reseller@example.com",
+			Level: "reseller",
+		}
+
+		recipientUserResp := &userDto.UserResponse{
+			ID:    recipientID,
+			Name:  "Recipient",
+			Email: "recipient@example.com",
+			Level: "user",
+		}
+
+		senderWallet := &entity.Wallet{
+			ID:       1,
+			UserID:   senderID,
+			Balance:  100000,
+			Currency: "IDR",
+			Status:   "active",
+		}
+
+		mockUserService.On("GetUserByID", senderID).Return(senderUserResp, nil).Once()
+		mockUserService.On("GetUserByID", recipientID).Return(recipientUserResp, nil).Once()
+		mockRepo.On("GetByUserID", senderID).Return(senderWallet, nil).Once()
+		mockRepo.On("GetByUserID", recipientID).Return(nil, gorm.ErrRecordNotFound).Once()
+
+		req := &dto.TransferWalletRequest{
+			RecipientUserID: recipientID,
+			Amount:          50000,
+			Description:     "Should fail",
+		}
+
+		// Execute
+		result, err := service.Transfer(senderID, req)
+
+		// Assert
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		assert.Equal(t, "recipient wallet not found", err.Error())
+		mockUserService.AssertExpectations(t)
+		mockRepo.AssertExpectations(t)
+	})
+
+	t.Run("should return error when insufficient balance", func(t *testing.T) {
+		// Setup
+		mockRepo := &testutil.MockWalletRepository{}
+		mockUserService := &testutil.MockUserService{}
+		mockTxRepo := &testutil.MockTransactionRepository{}
+		logger := testutil.NewSilentLogger()
+		db, _ := testutil.SetupTestDB()
+		service := NewWalletService(db, mockRepo, mockTxRepo, mockUserService, logger)
+
+		senderID := uint(16)
+		recipientID := uint(17)
+
+		senderUserResp := &userDto.UserResponse{
+			ID:    senderID,
+			Name:  "Reseller",
+			Email: "reseller@example.com",
+			Level: "reseller",
+		}
+
+		recipientUserResp := &userDto.UserResponse{
+			ID:    recipientID,
+			Name:  "Recipient",
+			Email: "recipient@example.com",
+			Level: "user",
+		}
+
+		senderWallet := &entity.Wallet{
+			ID:       2,
+			UserID:   senderID,
+			Balance:  10000, // Only 10k, trying to transfer 50k
+			Currency: "IDR",
+			Status:   "active",
+		}
+
+		recipientWallet := &entity.Wallet{
+			ID:       3,
+			UserID:   recipientID,
+			Balance:  50000,
+			Currency: "IDR",
+			Status:   "active",
+		}
+
+		mockUserService.On("GetUserByID", senderID).Return(senderUserResp, nil).Once()
+		mockUserService.On("GetUserByID", recipientID).Return(recipientUserResp, nil).Once()
+		mockRepo.On("GetByUserID", senderID).Return(senderWallet, nil).Once()
+		mockRepo.On("GetByUserID", recipientID).Return(recipientWallet, nil).Once()
+
+		req := &dto.TransferWalletRequest{
+			RecipientUserID: recipientID,
+			Amount:          50000,
+			Description:     "Should fail",
+		}
+
+		// Execute
+		result, err := service.Transfer(senderID, req)
+
+		// Assert
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		assert.Equal(t, "insufficient balance for transfer", err.Error())
+		mockUserService.AssertExpectations(t)
 		mockRepo.AssertExpectations(t)
 	})
 }

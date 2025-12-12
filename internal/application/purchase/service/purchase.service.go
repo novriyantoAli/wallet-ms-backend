@@ -22,6 +22,9 @@ type PurchaseService interface {
 	CreatePurchase(req *dto.CreatePurchaseRequest) (*dto.PurchaseResponse, error)
 	GetPurchaseByID(id uint) (*dto.PurchaseResponse, error)
 	GetUserPurchases(userID uint, filter *dto.PurchaseFilter) (*dto.PurchaseListResponse, error)
+	GetUserPurchasesWithDetails(userID uint, filter *dto.PurchaseFilter) (*dto.PurchaseListResponseWithDetails, error)
+	GetAllPurchases(filter *dto.PurchaseFilter) (*dto.PurchaseListResponse, error)
+	GetAllPurchasesWithDetails(filter *dto.PurchaseFilter) (*dto.PurchaseListResponseWithDetails, error)
 	UpdatePurchaseStatus(id uint, status string) (*dto.PurchaseResponse, error)
 }
 
@@ -141,30 +144,39 @@ func (s *purchaseService) CreatePurchase(req *dto.CreatePurchaseRequest) (*dto.P
 		return nil, errors.New("failed to create purchase")
 	}
 
+	// Record wallet transaction within the same transaction
+	transactionReq := &walletDTO.CreateTransactionRequest{
+		WalletID:    wallet.ID,
+		Type:        "payment",
+		Amount:      totalPrice,
+		Description: fmt.Sprintf("Purchase of product #%d (Qty: %d)", req.ProductID, req.Quantity),
+	}
+
+	// Create wallet transaction using the transaction's DB
+	walletTransaction := map[string]interface{}{
+		"wallet_id":     wallet.ID,
+		"type":          "payment",
+		"amount":        totalPrice,
+		"balance_after": (wallet.Balance - totalPrice),
+		"description":   transactionReq.Description,
+		"status":        "completed",
+		"created_at":    time.Now(),
+		"updated_at":    time.Now(),
+	}
+
+	if err := tx.Table("wallet_transactions").Create(walletTransaction).Error; err != nil {
+		tx.Rollback()
+		s.logger.Error("Failed to record wallet transaction", zap.Error(err))
+		return nil, errors.New("failed to record wallet transaction")
+	}
+
 	// Commit transaction
 	if err := tx.Commit().Error; err != nil {
 		s.logger.Error("Failed to commit transaction", zap.Error(err))
 		return nil, errors.New("failed to complete purchase")
 	}
 
-	// Record wallet transaction for the payment (non-blocking)
-	go func() {
-		transactionReq := &walletDTO.CreateTransactionRequest{
-			WalletID:    wallet.ID,
-			Type:        "payment",
-			Amount:      totalPrice,
-			Description: fmt.Sprintf("Purchase of product #%d (Qty: %d)", req.ProductID, req.Quantity),
-		}
-
-		if _, err := s.walletService.CreateTransaction(transactionReq); err != nil {
-			s.logger.Error("Failed to record wallet transaction",
-				zap.Error(err),
-				zap.Uint("purchase_id", purchase.ID),
-				zap.Uint("wallet_id", wallet.ID),
-				zap.Float64("amount", totalPrice),
-			)
-		}
-	}()
+	s.logger.Info("Purchase created successfully", zap.Uint("id", purchase.ID), zap.Uint("user_id", req.UserID))
 
 	// Send to background job queue for gRPC notification (non-blocking)
 	if s.queueClient != nil {
@@ -178,7 +190,6 @@ func (s *purchaseService) CreatePurchase(req *dto.CreatePurchaseRequest) (*dto.P
 		s.queueClient.Enqueue(task)
 	}
 
-	s.logger.Info("Purchase created successfully", zap.Uint("id", purchase.ID), zap.Uint("user_id", req.UserID))
 	return s.entityToResponse(purchase), nil
 }
 
@@ -216,6 +227,258 @@ func (s *purchaseService) GetUserPurchases(userID uint, filter *dto.PurchaseFilt
 
 	totalPages := (count + int64(filter.Limit) - 1) / int64(filter.Limit)
 	return &dto.PurchaseListResponse{
+		Data:       responses,
+		Total:      count,
+		Page:       filter.Page,
+		Limit:      filter.Limit,
+		TotalPages: totalPages,
+	}, nil
+}
+
+func (s *purchaseService) GetUserPurchasesWithDetails(userID uint, filter *dto.PurchaseFilter) (*dto.PurchaseListResponseWithDetails, error) {
+	if filter.Page <= 0 {
+		filter.Page = 1
+	}
+	if filter.Limit <= 0 {
+		filter.Limit = 10
+	}
+
+	// SQL query with JOIN to get user and product information
+	type PurchaseDetail struct {
+		ID           uint
+		Quantity     int
+		TotalPrice   float64
+		Status       string
+		Notes        string
+		CreatedAt    time.Time
+		UpdatedAt    time.Time
+		UserID       uint
+		UserName     string
+		UserEmail    string
+		UserLevel    string
+		ProductID    uint
+		ProductName  string
+		ProductSKU   string
+		ProductPrice float64
+		ProductStock int
+	}
+
+	var purchaseDetails []PurchaseDetail
+	var count int64
+
+	baseQuery := s.db.
+		Table("purchases").
+		Select(
+			"purchases.id, purchases.quantity, purchases.total_price, purchases.status, purchases.notes, purchases.created_at, purchases.updated_at",
+			"purchases.user_id, users.name as user_name, users.email as user_email, users.level as user_level",
+			"purchases.product_id, products.name as product_name, products.sku as product_sku, products.price as product_price, products.stock as product_stock",
+		).
+		Joins("LEFT JOIN users ON purchases.user_id = users.id").
+		Joins("LEFT JOIN products ON purchases.product_id = products.id").
+		Where("purchases.user_id = ?", userID)
+
+	// Apply status filter if provided
+	if filter.Status != "" {
+		baseQuery = baseQuery.Where("purchases.status = ?", filter.Status)
+	}
+
+	// Get total count
+	if err := baseQuery.Count(&count).Error; err != nil {
+		s.logger.Error("Failed to count user purchases with details", zap.Error(err), zap.Uint("user_id", userID))
+		return nil, errors.New("failed to get purchases count")
+	}
+
+	// Get paginated results with JOIN
+	offset := (filter.Page - 1) * filter.Limit
+	if err := baseQuery.
+		Offset(offset).
+		Limit(filter.Limit).
+		Order("purchases.created_at DESC").
+		Scan(&purchaseDetails).Error; err != nil {
+		s.logger.Error("Failed to get user purchases with details", zap.Error(err), zap.Uint("user_id", userID))
+		return nil, errors.New("failed to get purchases")
+	}
+
+	// Transform to response format
+	responses := make([]dto.PurchaseDetailResponse, len(purchaseDetails))
+	for i, pd := range purchaseDetails {
+		responses[i] = dto.PurchaseDetailResponse{
+			ID:         pd.ID,
+			Quantity:   pd.Quantity,
+			TotalPrice: pd.TotalPrice,
+			Status:     pd.Status,
+			Notes:      pd.Notes,
+			CreatedAt:  pd.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			UpdatedAt:  pd.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			User: &dto.PurchaseUserInfo{
+				ID:    pd.UserID,
+				Name:  pd.UserName,
+				Email: pd.UserEmail,
+				Level: pd.UserLevel,
+			},
+			Product: &dto.PurchaseProductInfo{
+				ID:    pd.ProductID,
+				Name:  pd.ProductName,
+				SKU:   pd.ProductSKU,
+				Price: pd.ProductPrice,
+				Stock: pd.ProductStock,
+			},
+		}
+	}
+
+	totalPages := (count + int64(filter.Limit) - 1) / int64(filter.Limit)
+	return &dto.PurchaseListResponseWithDetails{
+		Data:       responses,
+		Total:      count,
+		Page:       filter.Page,
+		Limit:      filter.Limit,
+		TotalPages: totalPages,
+	}, nil
+}
+
+func (s *purchaseService) GetAllPurchases(filter *dto.PurchaseFilter) (*dto.PurchaseListResponse, error) {
+	if filter.Page <= 0 {
+		filter.Page = 1
+	}
+	if filter.Limit <= 0 {
+		filter.Limit = 10
+	}
+
+	// Get all purchases with pagination using raw SQL
+	var purchases []entity.Purchase
+	var count int64
+
+	query := s.db.Model(&entity.Purchase{})
+
+	// Apply status filter if provided
+	if filter.Status != "" {
+		query = query.Where("status = ?", filter.Status)
+	}
+
+	// Get total count
+	if err := query.Count(&count).Error; err != nil {
+		s.logger.Error("Failed to count purchases", zap.Error(err))
+		return nil, errors.New("failed to get purchases count")
+	}
+
+	// Get paginated results
+	offset := (filter.Page - 1) * filter.Limit
+	if err := query.
+		Offset(offset).
+		Limit(filter.Limit).
+		Order("created_at DESC").
+		Find(&purchases).Error; err != nil {
+		s.logger.Error("Failed to get all purchases", zap.Error(err))
+		return nil, errors.New("failed to get purchases")
+	}
+
+	responses := make([]dto.PurchaseResponse, len(purchases))
+	for i, p := range purchases {
+		responses[i] = *s.entityToResponse(&p)
+	}
+
+	totalPages := (count + int64(filter.Limit) - 1) / int64(filter.Limit)
+	return &dto.PurchaseListResponse{
+		Data:       responses,
+		Total:      count,
+		Page:       filter.Page,
+		Limit:      filter.Limit,
+		TotalPages: totalPages,
+	}, nil
+}
+
+func (s *purchaseService) GetAllPurchasesWithDetails(filter *dto.PurchaseFilter) (*dto.PurchaseListResponseWithDetails, error) {
+	if filter.Page <= 0 {
+		filter.Page = 1
+	}
+	if filter.Limit <= 0 {
+		filter.Limit = 10
+	}
+
+	// SQL query with JOIN to get user and product information
+	type PurchaseDetail struct {
+		ID           uint
+		Quantity     int
+		TotalPrice   float64
+		Status       string
+		Notes        string
+		CreatedAt    time.Time
+		UpdatedAt    time.Time
+		UserID       uint
+		UserName     string
+		UserEmail    string
+		UserLevel    string
+		ProductID    uint
+		ProductName  string
+		ProductSKU   string
+		ProductPrice float64
+		ProductStock int
+	}
+
+	var purchaseDetails []PurchaseDetail
+	var count int64
+
+	baseQuery := s.db.
+		Table("purchases").
+		Select(
+			"purchases.id, purchases.quantity, purchases.total_price, purchases.status, purchases.notes, purchases.created_at, purchases.updated_at",
+			"purchases.user_id, users.name as user_name, users.email as user_email, users.level as user_level",
+			"purchases.product_id, products.name as product_name, products.sku as product_sku, products.price as product_price, products.stock as product_stock",
+		).
+		Joins("LEFT JOIN users ON purchases.user_id = users.id").
+		Joins("LEFT JOIN products ON purchases.product_id = products.id")
+
+	// Apply filters
+	if filter.Status != "" {
+		baseQuery = baseQuery.Where("purchases.status = ?", filter.Status)
+	}
+
+	// Get total count
+	if err := baseQuery.Count(&count).Error; err != nil {
+		s.logger.Error("Failed to count purchases with details", zap.Error(err))
+		return nil, errors.New("failed to get purchases count")
+	}
+
+	// Get paginated results with JOIN
+	offset := (filter.Page - 1) * filter.Limit
+	if err := baseQuery.
+		Offset(offset).
+		Limit(filter.Limit).
+		Order("purchases.created_at DESC").
+		Scan(&purchaseDetails).Error; err != nil {
+		s.logger.Error("Failed to get purchases with details", zap.Error(err))
+		return nil, errors.New("failed to get purchases")
+	}
+
+	// Transform to response format
+	responses := make([]dto.PurchaseDetailResponse, len(purchaseDetails))
+	for i, pd := range purchaseDetails {
+		responses[i] = dto.PurchaseDetailResponse{
+			ID:         pd.ID,
+			Quantity:   pd.Quantity,
+			TotalPrice: pd.TotalPrice,
+			Status:     pd.Status,
+			Notes:      pd.Notes,
+			CreatedAt:  pd.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			UpdatedAt:  pd.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			User: &dto.PurchaseUserInfo{
+				ID:    pd.UserID,
+				Name:  pd.UserName,
+				Email: pd.UserEmail,
+				Level: pd.UserLevel,
+			},
+			Product: &dto.PurchaseProductInfo{
+				ID:    pd.ProductID,
+				Name:  pd.ProductName,
+				SKU:   pd.ProductSKU,
+				Price: pd.ProductPrice,
+				Stock: pd.ProductStock,
+			},
+		}
+	}
+
+	totalPages := (count + int64(filter.Limit) - 1) / int64(filter.Limit)
+	return &dto.PurchaseListResponseWithDetails{
 		Data:       responses,
 		Total:      count,
 		Page:       filter.Page,

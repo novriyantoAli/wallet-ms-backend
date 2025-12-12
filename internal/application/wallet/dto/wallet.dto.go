@@ -84,3 +84,10 @@ type TransferResponse struct {
 	Status          string    `json:"status"`
 	TransferredAt   time.Time `json:"transferred_at"`
 }
+
+// TransferWalletRequest contains the request payload for user-to-user wallet transfer
+type TransferWalletRequest struct {
+	RecipientUserID uint    `json:"recipient_user_id" binding:"required"`
+	Amount          float64 `json:"amount" binding:"required,gt=0"`
+	Description     string  `json:"description"`
+}

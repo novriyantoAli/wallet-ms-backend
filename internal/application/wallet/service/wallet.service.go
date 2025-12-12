@@ -21,6 +21,7 @@ type WalletService interface {
 	GetWallets(filter *dto.WalletFilter) (*dto.WalletListResponse, error)
 	UpdateWalletBalance(walletID uint, req *dto.UpdateWalletBalanceRequest) (*dto.WalletBalanceResponse, error)
 	DeleteWallet(id uint) error
+	Transfer(senderID uint, req *dto.TransferWalletRequest) (*dto.TransferResponse, error)
 	TransferFunds(req *dto.TransferRequest) (*dto.TransferResponse, error)
 	CreateTransaction(req *dto.CreateTransactionRequest) (*dto.TransactionResponse, error)
 	GetTransactions(filter *dto.TransactionFilter) (*dto.TransactionListResponse, error)
@@ -329,6 +330,183 @@ func (s *walletService) TransferFunds(req *dto.TransferRequest) (*dto.TransferRe
 		FromNewBalance:  fromWallet.Balance,
 		ToPrevBalance:   toPrevBalance,
 		ToNewBalance:    toWallet.Balance,
+		Status:          "success",
+		TransferredAt:   time.Now(),
+	}, nil
+}
+
+// Transfer performs a wallet transfer from sender to recipient with level-based access control
+func (s *walletService) Transfer(senderID uint, req *dto.TransferWalletRequest) (*dto.TransferResponse, error) {
+	// Get sender user to check level
+	senderUser, err := s.userService.GetUserByID(senderID)
+	if err != nil {
+		s.logger.Error("Sender user not found", zap.Uint("user_id", senderID), zap.Error(err))
+		return nil, errors.New("sender user not found")
+	}
+
+	// Validate user level - only reseller and admin can transfer
+	if senderUser.Level == "user" {
+		s.logger.Warn("User level cannot perform transfer",
+			zap.Uint("user_id", senderID),
+			zap.String("level", senderUser.Level))
+		return nil, errors.New("users cannot transfer funds")
+	}
+
+	// Get recipient user to verify existence
+	_, err = s.userService.GetUserByID(req.RecipientUserID)
+	if err != nil {
+		s.logger.Error("Recipient user not found", zap.Uint("user_id", req.RecipientUserID), zap.Error(err))
+		return nil, errors.New("recipient user not found")
+	}
+
+	// Validate that sender and recipient are different
+	if senderID == req.RecipientUserID {
+		s.logger.Warn("Transfer to same user attempted", zap.Uint("user_id", senderID))
+		return nil, errors.New("cannot transfer to the same user")
+	}
+
+	// Get sender wallet
+	senderWallet, err := s.repo.GetByUserID(senderID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			s.logger.Warn("Sender wallet not found", zap.Uint("user_id", senderID))
+			return nil, errors.New("sender wallet not found")
+		}
+		return nil, err
+	}
+
+	// Get recipient wallet
+	recipientWallet, err := s.repo.GetByUserID(req.RecipientUserID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			s.logger.Warn("Recipient wallet not found", zap.Uint("user_id", req.RecipientUserID))
+			return nil, errors.New("recipient wallet not found")
+		}
+		return nil, err
+	}
+
+	// Check if sender wallet has sufficient balance
+	if senderWallet.Balance < req.Amount {
+		s.logger.Warn("Insufficient balance for transfer",
+			zap.Uint("user_id", senderID),
+			zap.Float64("balance", senderWallet.Balance),
+			zap.Float64("amount", req.Amount))
+		return nil, errors.New("insufficient balance for transfer")
+	}
+
+	// Store previous balances
+	senderPrevBalance := senderWallet.Balance
+	recipientPrevBalance := recipientWallet.Balance
+
+	// Begin transaction
+	tx := s.db.Begin()
+	if tx.Error != nil {
+		s.logger.Error("Failed to begin transaction", zap.Error(tx.Error))
+		return nil, errors.New("failed to begin transaction")
+	}
+
+	// Lock sender wallet for update
+	var lockedSenderWallet entity.Wallet
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+		First(&lockedSenderWallet, senderWallet.ID).Error; err != nil {
+		tx.Rollback()
+		s.logger.Error("Failed to lock sender wallet", zap.Error(err))
+		return nil, errors.New("failed to acquire lock on sender wallet")
+	}
+
+	// Lock recipient wallet for update
+	var lockedRecipientWallet entity.Wallet
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+		First(&lockedRecipientWallet, recipientWallet.ID).Error; err != nil {
+		tx.Rollback()
+		s.logger.Error("Failed to lock recipient wallet", zap.Error(err))
+		return nil, errors.New("failed to acquire lock on recipient wallet")
+	}
+
+	// Perform transfer
+	lockedSenderWallet.Balance -= req.Amount
+	lockedRecipientWallet.Balance += req.Amount
+	lockedSenderWallet.UpdatedAt = time.Now()
+	lockedRecipientWallet.UpdatedAt = time.Now()
+
+	// Update sender wallet
+	if err := tx.Save(&lockedSenderWallet).Error; err != nil {
+		tx.Rollback()
+		s.logger.Error("Failed to debit sender wallet", zap.Uint("wallet_id", senderWallet.ID), zap.Error(err))
+		return nil, err
+	}
+
+	// Update recipient wallet
+	if err := tx.Save(&lockedRecipientWallet).Error; err != nil {
+		tx.Rollback()
+		s.logger.Error("Failed to credit recipient wallet", zap.Uint("wallet_id", recipientWallet.ID), zap.Error(err))
+		return nil, err
+	}
+
+	// Create transaction record for sender (transfer_out)
+	senderTransaction := &entity.WalletTransaction{
+		WalletID:        senderWallet.ID,
+		Type:            entity.TransactionTypeTransfer,
+		Amount:          req.Amount,
+		Status:          entity.TransactionStatusCompleted,
+		Description:     "transfer_out: " + req.Description,
+		BalanceAfter:    lockedSenderWallet.Balance,
+		RelatedWalletID: &recipientWallet.ID,
+		CreatedAt:       time.Now(),
+		UpdatedAt:       time.Now(),
+	}
+
+	if err := tx.Create(senderTransaction).Error; err != nil {
+		tx.Rollback()
+		s.logger.Error("Failed to create sender transaction record", zap.Error(err))
+		return nil, err
+	}
+
+	// Create transaction record for recipient (transfer_in)
+	recipientTransaction := &entity.WalletTransaction{
+		WalletID:        recipientWallet.ID,
+		Type:            entity.TransactionTypeTransfer,
+		Amount:          req.Amount,
+		Status:          entity.TransactionStatusCompleted,
+		Description:     "transfer_in: " + req.Description,
+		BalanceAfter:    lockedRecipientWallet.Balance,
+		RelatedWalletID: &senderWallet.ID,
+		CreatedAt:       time.Now(),
+		UpdatedAt:       time.Now(),
+	}
+
+	if err := tx.Create(recipientTransaction).Error; err != nil {
+		tx.Rollback()
+		s.logger.Error("Failed to create recipient transaction record", zap.Error(err))
+		return nil, err
+	}
+
+	// Commit transaction
+	if err := tx.Commit().Error; err != nil {
+		s.logger.Error("Failed to commit transfer transaction", zap.Error(err))
+		return nil, errors.New("failed to commit transfer transaction")
+	}
+
+	s.logger.Info("Wallet transfer completed successfully with level validation",
+		zap.Uint("sender_user_id", senderID),
+		zap.String("sender_level", senderUser.Level),
+		zap.Uint("recipient_user_id", req.RecipientUserID),
+		zap.Float64("amount", req.Amount),
+		zap.Float64("sender_prev_balance", senderPrevBalance),
+		zap.Float64("sender_new_balance", lockedSenderWallet.Balance),
+		zap.Float64("recipient_prev_balance", recipientPrevBalance),
+		zap.Float64("recipient_new_balance", lockedRecipientWallet.Balance))
+
+	return &dto.TransferResponse{
+		TransferID:      senderTransaction.ID,
+		FromWalletID:    senderWallet.ID,
+		ToWalletID:      recipientWallet.ID,
+		Amount:          req.Amount,
+		Description:     req.Description,
+		FromPrevBalance: senderPrevBalance,
+		FromNewBalance:  lockedSenderWallet.Balance,
+		ToPrevBalance:   recipientPrevBalance,
+		ToNewBalance:    lockedRecipientWallet.Balance,
 		Status:          "success",
 		TransferredAt:   time.Now(),
 	}, nil

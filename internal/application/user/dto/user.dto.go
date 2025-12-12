@@ -6,6 +6,7 @@ type RegisterRequest struct {
 	Name     string `json:"name" binding:"required"`
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=8"`
+	Level    string `json:"level" binding:"omitempty,oneof=user reseller admin"`
 }
 
 type LoginRequest struct {
@@ -21,7 +22,8 @@ type CreateUserRequest struct {
 }
 
 type UpdateUserRequest struct {
-	Name string `json:"name" binding:"required"`
+	Name  string `json:"name" binding:"required"`
+	Level string `json:"level" binding:"omitempty,oneof=user reseller admin"`
 }
 
 type UpdateUserPasswordRequest struct {
@@ -56,6 +58,7 @@ type UserListResponse struct {
 type UserFilter struct {
 	Name     string `form:"name"`
 	Email    string `form:"email"`
+	Level    string `form:"level"`
 	Page     int    `form:"page"`
 	PageSize int    `form:"page_size"`
 }

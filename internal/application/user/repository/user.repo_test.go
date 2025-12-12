@@ -199,6 +199,43 @@ func TestUserRepository_GetAll(t *testing.T) {
 		assert.Equal(t, "Alice Smith", users[0].Name)
 	})
 
+	t.Run("should filter users by level", func(t *testing.T) {
+		// Given
+		userLevelUser := testutil.CreateUserFixture()
+		userLevelUser.ID = 0
+		userLevelUser.Email = "user@example.com"
+		userLevelUser.Level = entity.UserLevelUser
+		err := repo.Create(userLevelUser)
+		require.NoError(t, err)
+
+		userLevelReseller := testutil.CreateUserFixture()
+		userLevelReseller.ID = 0
+		userLevelReseller.Email = "reseller@example.com"
+		userLevelReseller.Level = entity.UserLevelReseller
+		err = repo.Create(userLevelReseller)
+		require.NoError(t, err)
+
+		userLevelAdmin := testutil.CreateUserFixture()
+		userLevelAdmin.ID = 0
+		userLevelAdmin.Email = "admin@example.com"
+		userLevelAdmin.Level = entity.UserLevelAdmin
+		err = repo.Create(userLevelAdmin)
+		require.NoError(t, err)
+
+		filter := &dto.UserFilter{
+			Level: "reseller",
+		}
+
+		// When
+		users, totalCount, err := repo.GetAll(filter)
+
+		// Then
+		assert.NoError(t, err)
+		assert.Len(t, users, 1)
+		assert.Equal(t, int64(1), totalCount)
+		assert.Equal(t, entity.UserLevelReseller, users[0].Level)
+	})
+
 	// Cleanup
 	testutil.CleanDB(db)
 }

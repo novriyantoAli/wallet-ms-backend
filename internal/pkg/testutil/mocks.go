@@ -440,6 +440,14 @@ func (m *MockWalletService) CreateTransaction(req *walletDto.CreateTransactionRe
 	return args.Get(0).(*walletDto.TransactionResponse), args.Error(1)
 }
 
+func (m *MockWalletService) Transfer(senderID uint, req *walletDto.TransferWalletRequest) (*walletDto.TransferResponse, error) {
+	args := m.Called(senderID, req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*walletDto.TransferResponse), args.Error(1)
+}
+
 func (m *MockWalletService) GetTransactions(filter *walletDto.TransactionFilter) (*walletDto.TransactionListResponse, error) {
 	args := m.Called(filter)
 	if args.Get(0) == nil {

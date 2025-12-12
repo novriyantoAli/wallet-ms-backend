@@ -38,6 +38,10 @@ func provideWalletService(
 	return service.NewWalletService(db, repo, transactionRepo, userService, logger)
 }
 
-func provideWalletHandler(service service.WalletService, logger *zap.Logger) *handler.WalletHandler {
-	return handler.NewWalletHandler(service, logger)
+func provideWalletHandler(
+	service service.WalletService,
+	userService userservice.UserService,
+	logger *zap.Logger,
+) *handler.WalletHandler {
+	return handler.NewWalletHandler(service, userService, logger)
 }

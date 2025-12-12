@@ -67,6 +67,9 @@ func (r *userRepository) GetAll(filter *dto.UserFilter) ([]entity.User, int64, e
 	if filter.Email != "" {
 		query = query.Where("email LIKE ?", "%"+filter.Email+"%")
 	}
+	if filter.Level != "" {
+		query = query.Where("level = ?", filter.Level)
+	}
 
 	query.Count(&totalCount)
 

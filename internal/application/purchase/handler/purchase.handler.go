@@ -128,7 +128,97 @@ func (h *PurchaseHandler) GetUserPurchases(c *gin.Context) {
 	c.JSON(http.StatusOK, purchases)
 }
 
-// UpdatePurchaseStatus godoc
+// GetUserPurchasesWithDetails godoc
+// @Summary Get user purchases with details
+// @Description Get all purchases for a specific user with product and user details
+// @Tags purchases
+// @Produce json
+// @Param user_id path int true "User ID"
+// @Param page query int false "Page number (default: 1)"
+// @Param limit query int false "Items per page (default: 10)"
+// @Param status query string false "Filter by status (pending/completed/failed)"
+// @Success 200 {object} dto.PurchaseListResponseWithDetails
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/v1/purchases/user/{user_id}/details [get]
+func (h *PurchaseHandler) GetUserPurchasesWithDetails(c *gin.Context) {
+	userIDStr := c.Param("user_id")
+	userID, err := strconv.ParseUint(userIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user id"})
+		return
+	}
+
+	page := 1
+	limit := 10
+	if p := c.Query("page"); p != "" {
+		if pageNum, err := strconv.Atoi(p); err == nil && pageNum > 0 {
+			page = pageNum
+		}
+	}
+	if l := c.Query("limit"); l != "" {
+		if limitNum, err := strconv.Atoi(l); err == nil && limitNum > 0 {
+			limit = limitNum
+		}
+	}
+
+	filter := &dto.PurchaseFilter{
+		Status: c.Query("status"),
+		Page:   page,
+		Limit:  limit,
+	}
+
+	purchases, err := h.service.GetUserPurchasesWithDetails(uint(userID), filter)
+	if err != nil {
+		h.logger.Error("Failed to get user purchases with details", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get purchases"})
+		return
+	}
+
+	c.JSON(http.StatusOK, purchases)
+}
+
+// GetAllPurchases godoc
+// @Summary Get all purchases
+// @Description Get all purchases with pagination and optional status filter
+// @Tags purchases
+// @Produce json
+// @Param page query int false "Page number (default: 1)"
+// @Param limit query int false "Items per page (default: 10)"
+// @Param status query string false "Filter by status (pending/completed/failed)"
+// @Success 200 {object} dto.PurchaseListResponse
+// @Failure 500 {object} map[string]string
+// @Router /api/v1/purchases [get]
+func (h *PurchaseHandler) GetAllPurchases(c *gin.Context) {
+	page := 1
+	limit := 10
+	if p := c.Query("page"); p != "" {
+		if pageNum, err := strconv.Atoi(p); err == nil && pageNum > 0 {
+			page = pageNum
+		}
+	}
+	if l := c.Query("limit"); l != "" {
+		if limitNum, err := strconv.Atoi(l); err == nil && limitNum > 0 {
+			limit = limitNum
+		}
+	}
+
+	filter := &dto.PurchaseFilter{
+		Status: c.Query("status"),
+		Page:   page,
+		Limit:  limit,
+	}
+
+	purchases, err := h.service.GetAllPurchases(filter)
+	if err != nil {
+		h.logger.Error("Failed to get all purchases", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get purchases"})
+		return
+	}
+
+	c.JSON(http.StatusOK, purchases)
+}
+
 // @Summary Update purchase status
 // @Description Update the status of a purchase
 // @Tags purchases
@@ -165,13 +255,57 @@ func (h *PurchaseHandler) UpdatePurchaseStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, purchase)
 }
 
+// GetAllPurchasesWithDetails godoc
+// @Summary Get all purchases with user and product details
+// @Description Get all purchases with detailed user and product information using JOIN queries
+// @Tags purchases
+// @Produce json
+// @Param page query int false "Page number (default: 1)"
+// @Param limit query int false "Items per page (default: 10)"
+// @Param status query string false "Filter by status (pending/completed/failed)"
+// @Success 200 {object} dto.PurchaseListResponseWithDetails
+// @Failure 500 {object} map[string]string
+// @Router /api/v1/purchases/details [get]
+func (h *PurchaseHandler) GetAllPurchasesWithDetails(c *gin.Context) {
+	page := 1
+	limit := 10
+	if p := c.Query("page"); p != "" {
+		if pageNum, err := strconv.Atoi(p); err == nil && pageNum > 0 {
+			page = pageNum
+		}
+	}
+	if l := c.Query("limit"); l != "" {
+		if limitNum, err := strconv.Atoi(l); err == nil && limitNum > 0 {
+			limit = limitNum
+		}
+	}
+
+	filter := &dto.PurchaseFilter{
+		Status: c.Query("status"),
+		Page:   page,
+		Limit:  limit,
+	}
+
+	purchases, err := h.service.GetAllPurchasesWithDetails(filter)
+	if err != nil {
+		h.logger.Error("Failed to get purchases with details", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get purchases"})
+		return
+	}
+
+	c.JSON(http.StatusOK, purchases)
+}
+
 // RegisterRoutes registers purchase routes
 func (h *PurchaseHandler) RegisterRoutes(api *gin.RouterGroup) {
 	purchases := api.Group("/purchases")
 	{
 		purchases.POST("", h.CreatePurchase)
+		purchases.GET("/details", h.GetAllPurchasesWithDetails)
+		purchases.GET("", h.GetAllPurchases)
 		purchases.GET("/:id", h.GetPurchase)
 		purchases.PUT("/:id/status", h.UpdatePurchaseStatus)
+		purchases.GET("/user/:user_id/details", h.GetUserPurchasesWithDetails)
 		purchases.GET("/user/:user_id", h.GetUserPurchases)
 	}
 }

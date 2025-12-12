@@ -3,7 +3,9 @@ package handler
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
+	userservice "github.com/novriyantoAli/wallet-ms-backend/internal/application/user/service"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/wallet/dto"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/wallet/service"
 
@@ -12,14 +14,20 @@ import (
 )
 
 type WalletHandler struct {
-	service service.WalletService
-	logger  *zap.Logger
+	service     service.WalletService
+	userService userservice.UserService
+	logger      *zap.Logger
 }
 
-func NewWalletHandler(service service.WalletService, logger *zap.Logger) *WalletHandler {
+func NewWalletHandler(
+	service service.WalletService,
+	userService userservice.UserService,
+	logger *zap.Logger,
+) *WalletHandler {
 	return &WalletHandler{
-		service: service,
-		logger:  logger,
+		service:     service,
+		userService: userService,
+		logger:      logger,
 	}
 }
 
@@ -255,6 +263,94 @@ func (h *WalletHandler) TransferFunds(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
+// Transfer godoc
+// @Summary Transfer funds between users with level validation
+// @Description Transfer funds from sender to recipient user with level-based access control (only reseller and admin can transfer)
+// @Tags wallet
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param request body dto.TransferWalletRequest true "Transfer wallet request with recipient user ID and amount"
+// @Success 200 {object} dto.TransferResponse "Transfer successful"
+// @Failure 400 {object} map[string]interface{} "Invalid request body or insufficient balance"
+// @Failure 401 {object} map[string]interface{} "Unauthorized or insufficient access level"
+// @Failure 404 {object} map[string]interface{} "User or wallet not found"
+// @Router /api/v1/wallets/transfer-to-user [post]
+func (h *WalletHandler) Transfer(c *gin.Context) {
+	// Extract token from Authorization header
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		h.logger.Warn("Missing authorization header for transfer")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Authorization header is required"})
+		return
+	}
+
+	// Extract token from "Bearer <token>" format
+	const bearerPrefix = "Bearer "
+	if !strings.HasPrefix(authHeader, bearerPrefix) {
+		h.logger.Warn("Invalid authorization header format for transfer")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid authorization header format"})
+		return
+	}
+
+	token := authHeader[len(bearerPrefix):]
+	if token == "" {
+		h.logger.Warn("Empty token in authorization header for transfer")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid authorization header format"})
+		return
+	}
+
+	// Get current user from token to extract sender ID
+	currentUser, err := h.userService.GetCurrentUser(token)
+	if err != nil {
+		h.logger.Error("Failed to get current user from token", zap.Error(err))
+		if err.Error() == "invalid or expired token" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Failed to authenticate user"})
+		return
+	}
+
+	senderID := currentUser.ID
+
+	// Bind request body
+	var req dto.TransferWalletRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.logger.Error("Failed to bind transfer request", zap.Error(err))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	// Call the transfer service
+	resp, err := h.service.Transfer(senderID, &req)
+	if err != nil {
+		h.logger.Error("Failed to transfer funds", zap.String("error", err.Error()), zap.Uint("sender_id", senderID), zap.Uint("recipient_id", req.RecipientUserID))
+
+		// Return appropriate error status codes
+		switch err.Error() {
+		case "users cannot transfer funds":
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		case "sender user not found":
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		case "recipient user not found":
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		case "sender wallet not found":
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		case "recipient wallet not found":
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		case "insufficient balance for transfer":
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		default:
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		}
+		return
+	}
+
+	h.logger.Info("Transfer completed successfully", zap.Uint("sender_id", senderID), zap.Uint("recipient_id", req.RecipientUserID), zap.Float64("amount", req.Amount))
+	c.JSON(http.StatusOK, resp)
+}
+
 // CreateTransaction godoc
 // @Summary Create a wallet transaction
 // @Description Create a transaction (deposit, withdrawal, payment, etc.) on a wallet
@@ -383,6 +479,7 @@ func (h *WalletHandler) RegisterRoutes(api *gin.RouterGroup) {
 		wallets.POST("/:id/balance", h.UpdateWalletBalance)
 		wallets.DELETE("/:id", h.DeleteWallet)
 		wallets.POST("/transfer", h.TransferFunds)
+		wallets.POST("/transfer-to-user", h.Transfer)
 
 		// Transaction routes
 		wallets.POST("/transactions", h.CreateTransaction)

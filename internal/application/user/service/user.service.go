@@ -71,6 +71,13 @@ func (s *userService) Register(req *dto.RegisterRequest) (*dto.UserResponse, err
 		UpdatedAt: time.Now(),
 	}
 
+	// Set level if provided in request, otherwise default to "user"
+	if req.Level != "" {
+		user.Level = entity.UserLevel(req.Level)
+	} else {
+		user.Level = entity.UserLevelUser
+	}
+
 	err = s.repo.Create(user)
 	if err != nil {
 		s.logger.Error("Failed to register user", zap.Error(err))
@@ -246,6 +253,9 @@ func (s *userService) UpdateUser(id uint, req *dto.UpdateUserRequest) (*dto.User
 	}
 
 	user.Name = req.Name
+	if req.Level != "" {
+		user.Level = entity.UserLevel(req.Level)
+	}
 	user.UpdatedAt = time.Now()
 
 	err = s.repo.Update(user)

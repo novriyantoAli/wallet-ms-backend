@@ -21,8 +21,9 @@ func TestWalletHandler_CreateTransaction(t *testing.T) {
 	t.Run("should create transaction successfully", func(t *testing.T) {
 		// Setup
 		mockService := &testutil.MockWalletService{}
+		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		handler := NewWalletHandler(mockService, logger)
+		handler := NewWalletHandler(mockService, mockUserService, logger)
 
 		req := dto.CreateTransactionRequest{
 			WalletID:    1,
@@ -60,8 +61,9 @@ func TestWalletHandler_CreateTransaction(t *testing.T) {
 	t.Run("should return bad request for invalid JSON", func(t *testing.T) {
 		// Setup
 		mockService := &testutil.MockWalletService{}
+		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		handler := NewWalletHandler(mockService, logger)
+		handler := NewWalletHandler(mockService, mockUserService, logger)
 
 		w := httptest.NewRecorder()
 		ctx, _ := gin.CreateTestContext(w)
@@ -78,8 +80,9 @@ func TestWalletHandler_CreateTransaction(t *testing.T) {
 	t.Run("should return not found when wallet not found", func(t *testing.T) {
 		// Setup
 		mockService := &testutil.MockWalletService{}
+		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		handler := NewWalletHandler(mockService, logger)
+		handler := NewWalletHandler(mockService, mockUserService, logger)
 
 		req := dto.CreateTransactionRequest{
 			WalletID:    999,
@@ -108,8 +111,9 @@ func TestWalletHandler_GetTransactions(t *testing.T) {
 	t.Run("should get transactions successfully", func(t *testing.T) {
 		// Setup
 		mockService := &testutil.MockWalletService{}
+		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		handler := NewWalletHandler(mockService, logger)
+		handler := NewWalletHandler(mockService, mockUserService, logger)
 
 		resp := &dto.TransactionListResponse{
 			Data: []dto.TransactionResponse{
@@ -146,8 +150,9 @@ func TestWalletHandler_GetTransactions(t *testing.T) {
 	t.Run("should return bad request when wallet_id is missing", func(t *testing.T) {
 		// Setup
 		mockService := &testutil.MockWalletService{}
+		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		handler := NewWalletHandler(mockService, logger)
+		handler := NewWalletHandler(mockService, mockUserService, logger)
 
 		w := httptest.NewRecorder()
 		ctx, _ := gin.CreateTestContext(w)
@@ -163,8 +168,9 @@ func TestWalletHandler_GetTransactions(t *testing.T) {
 	t.Run("should apply default pagination", func(t *testing.T) {
 		// Setup
 		mockService := &testutil.MockWalletService{}
+		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		handler := NewWalletHandler(mockService, logger)
+		handler := NewWalletHandler(mockService, mockUserService, logger)
 
 		filter := &dto.TransactionFilter{
 			WalletID: 1,
@@ -197,8 +203,9 @@ func TestWalletHandler_GetTransaction(t *testing.T) {
 	t.Run("should get transaction by ID successfully", func(t *testing.T) {
 		// Setup
 		mockService := &testutil.MockWalletService{}
+		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		handler := NewWalletHandler(mockService, logger)
+		handler := NewWalletHandler(mockService, mockUserService, logger)
 
 		resp := &dto.TransactionResponse{
 			ID:           1,
@@ -228,8 +235,9 @@ func TestWalletHandler_GetTransaction(t *testing.T) {
 	t.Run("should return not found when transaction not found", func(t *testing.T) {
 		// Setup
 		mockService := &testutil.MockWalletService{}
+		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		handler := NewWalletHandler(mockService, logger)
+		handler := NewWalletHandler(mockService, mockUserService, logger)
 
 		mockService.On("GetTransactionByID", uint(999)).Return(nil, errors.New("transaction not found"))
 
@@ -248,8 +256,9 @@ func TestWalletHandler_GetTransaction(t *testing.T) {
 	t.Run("should return bad request for invalid transaction ID", func(t *testing.T) {
 		// Setup
 		mockService := &testutil.MockWalletService{}
+		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		handler := NewWalletHandler(mockService, logger)
+		handler := NewWalletHandler(mockService, mockUserService, logger)
 
 		w := httptest.NewRecorder()
 		ctx, _ := gin.CreateTestContext(w)

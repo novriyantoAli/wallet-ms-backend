@@ -442,6 +442,39 @@ func TestUserService_UpdateUser(t *testing.T) {
 		assert.Equal(t, originalEmail, response.Email)
 		mockRepo.AssertExpectations(t)
 	})
+
+	t.Run("should update user level successfully", func(t *testing.T) {
+		// Setup
+		mockRepo := &testutil.MockUserRepository{}
+		logger := testutil.NewSilentLogger()
+		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, newTestJWTManager(), logger)
+
+		userID := uint(1)
+		existingUser := testutil.CreateUserFixture()
+		existingUser.ID = userID
+		existingUser.Level = entity.UserLevelUser
+
+		req := &dto.UpdateUserRequest{
+			Name:  "Updated Name",
+			Level: "reseller",
+		}
+
+		// Mock expectations
+		mockRepo.On("GetByID", userID).Return(existingUser, nil)
+		mockRepo.On("Update", mock.MatchedBy(func(u *entity.User) bool {
+			return u.ID == userID && u.Name == req.Name && u.Level == entity.UserLevel(req.Level)
+		})).Return(nil)
+
+		// When
+		response, err := service.UpdateUser(userID, req)
+
+		// Then
+		assert.NoError(t, err)
+		assert.NotNil(t, response)
+		assert.Equal(t, req.Name, response.Name)
+		assert.Equal(t, "reseller", response.Level)
+		mockRepo.AssertExpectations(t)
+	})
 }
 
 func TestUserService_UpdateUserPassword(t *testing.T) {

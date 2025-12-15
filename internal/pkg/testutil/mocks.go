@@ -11,9 +11,11 @@ import (
 	walletDto "github.com/novriyantoAli/wallet-ms-backend/internal/application/wallet/dto"
 	walletEntity "github.com/novriyantoAli/wallet-ms-backend/internal/application/wallet/entity"
 	walletRepository "github.com/novriyantoAli/wallet-ms-backend/internal/application/wallet/repository"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/database"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/mock"
+	"gorm.io/gorm"
 )
 
 // MockUserRepository is a mock implementation of UserRepository
@@ -279,6 +281,22 @@ func (m *MockWalletRepository) GetAllWithUser(ctx context.Context, filter *walle
 	return args.Get(0).([]walletRepository.WalletWithUserData), args.Get(1).(int64), args.Error(2)
 }
 
+func (m *MockWalletRepository) GetByIDForUpdate(ctx context.Context, id uint) (*walletEntity.Wallet, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*walletEntity.Wallet), args.Error(1)
+}
+
+func (m *MockWalletRepository) GetByUserIDForUpdate(ctx context.Context, userID uint) (*walletEntity.Wallet, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*walletEntity.Wallet), args.Error(1)
+}
+
 // MockRedisClient is a mock implementation of redis.Client
 type MockRedisClient struct {
 	mock.Mock
@@ -424,14 +442,6 @@ func (m *MockWalletService) DeleteWallet(ctx context.Context, id uint) error {
 	return args.Error(0)
 }
 
-func (m *MockWalletService) TransferFunds(ctx context.Context, req *walletDto.TransferRequest) (*walletDto.TransferResponse, error) {
-	args := m.Called(ctx, req)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*walletDto.TransferResponse), args.Error(1)
-}
-
 func (m *MockWalletService) CreateTransaction(ctx context.Context, req *walletDto.CreateTransactionRequest) (*walletDto.TransactionResponse, error) {
 	args := m.Called(ctx, req)
 	if args.Get(0) == nil {
@@ -467,4 +477,27 @@ func (m *MockWalletService) GetTransactionByID(ctx context.Context, id uint) (*w
 // NewMockUserService returns a new mock user service
 func NewMockUserService() *MockUserService {
 	return &MockUserService{}
+}
+
+// MockTransactionManager is a mock implementation of database.TransactionManagerI
+type MockTransactionManager struct {
+	mock.Mock
+	DB *gorm.DB
+}
+
+func (m *MockTransactionManager) WithinTransaction(ctx context.Context, fn func(ctx context.Context) error) error {
+	if m.DB != nil {
+		// Use real transaction with test database
+		return m.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			ctx = database.WithTx(ctx, tx)
+			return fn(ctx)
+		})
+	}
+	// Fallback: just execute the function with context
+	return fn(ctx)
+}
+
+// NewMockTransactionManager creates a new mock transaction manager with optional database
+func NewMockTransactionManager(db *gorm.DB) *MockTransactionManager {
+	return &MockTransactionManager{DB: db}
 }

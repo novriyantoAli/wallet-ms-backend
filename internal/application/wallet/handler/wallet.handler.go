@@ -240,36 +240,6 @@ func (h *WalletHandler) DeleteWallet(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Wallet deleted successfully"})
 }
 
-// TransferFunds godoc
-// @Summary Transfer funds between wallets
-// @Description Transfer funds from one wallet to another wallet
-// @Tags wallet
-// @Accept json
-// @Produce json
-// @Param request body dto.TransferRequest true "Transfer request"
-// @Success 200 {object} dto.TransferResponse
-// @Failure 400 {object} map[string]interface{}
-// @Failure 404 {object} map[string]interface{}
-// @Router /api/v1/wallets/transfer [post]
-func (h *WalletHandler) TransferFunds(c *gin.Context) {
-	ctx := c.Request.Context()
-	var req dto.TransferRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		h.logger.Error("Failed to bind request", zap.Error(err))
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
-		return
-	}
-
-	resp, err := h.service.TransferFunds(ctx, &req)
-	if err != nil {
-		h.logger.Error("Failed to transfer funds", zap.Error(err))
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, resp)
-}
-
 // Transfer godoc
 // @Summary Transfer funds between users with level validation
 // @Description Transfer funds from sender to recipient user with level-based access control (only reseller and admin can transfer)
@@ -489,7 +459,6 @@ func (h *WalletHandler) RegisterRoutes(api *gin.RouterGroup) {
 		wallets.GET("/:id", h.GetWallet)
 		wallets.POST("/:id/balance", h.UpdateWalletBalance)
 		wallets.DELETE("/:id", h.DeleteWallet)
-		wallets.POST("/transfer", h.TransferFunds)
 		wallets.POST("/transfer-to-user", h.Transfer)
 
 		// Transaction routes

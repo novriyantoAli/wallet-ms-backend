@@ -23,7 +23,7 @@ func TestWalletService_CreateWallet(t *testing.T) {
 		mockRepo := &testutil.MockWalletRepository{}
 		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		service := NewWalletService(nil, mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
+		service := NewWalletService(testutil.NewMockTransactionManager(nil), mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
 
 		req := &dto.CreateWalletRequest{
 			UserID:         1,
@@ -78,7 +78,7 @@ func TestWalletService_CreateWallet(t *testing.T) {
 		mockRepo := &testutil.MockWalletRepository{}
 		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		service := NewWalletService(nil, mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
+		service := NewWalletService(testutil.NewMockTransactionManager(nil), mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
 
 		req := &dto.CreateWalletRequest{
 			UserID:         999,
@@ -103,7 +103,7 @@ func TestWalletService_CreateWallet(t *testing.T) {
 		mockRepo := &testutil.MockWalletRepository{}
 		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		service := NewWalletService(nil, mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
+		service := NewWalletService(testutil.NewMockTransactionManager(nil), mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
 
 		req := &dto.CreateWalletRequest{
 			UserID:         1,
@@ -141,7 +141,7 @@ func TestWalletService_GetWalletByID(t *testing.T) {
 		mockRepo := &testutil.MockWalletRepository{}
 		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		service := NewWalletService(nil, mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
+		service := NewWalletService(testutil.NewMockTransactionManager(nil), mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
 
 		walletWithUser := &repository.WalletWithUserData{
 			ID:        1,
@@ -175,7 +175,7 @@ func TestWalletService_GetWalletByID(t *testing.T) {
 		mockRepo := &testutil.MockWalletRepository{}
 		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		service := NewWalletService(nil, mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
+		service := NewWalletService(testutil.NewMockTransactionManager(nil), mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
 
 		// Mock expectations
 		mockRepo.On("GetByIDWithUser", context.Background(), uint(999)).Return(nil, gorm.ErrRecordNotFound)
@@ -195,7 +195,7 @@ func TestWalletService_GetWalletByUserID(t *testing.T) {
 		mockRepo := &testutil.MockWalletRepository{}
 		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		service := NewWalletService(nil, mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
+		service := NewWalletService(testutil.NewMockTransactionManager(nil), mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
 
 		walletWithUser := &repository.WalletWithUserData{
 			ID:        1,
@@ -230,7 +230,7 @@ func TestWalletService_UpdateWalletBalance(t *testing.T) {
 		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
 		db, _ := testutil.SetupTestDB()
-		service := NewWalletService(db, mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
+		service := NewWalletService(testutil.NewMockTransactionManager(db), mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
 
 		wallet := &entity.Wallet{
 			ID:        1,
@@ -248,8 +248,8 @@ func TestWalletService_UpdateWalletBalance(t *testing.T) {
 		}
 
 		// Mock expectations
-		mockRepo.On("GetByID", context.Background(), uint(1)).Return(wallet, nil)
-		mockRepo.On("Update", context.Background(), mock.AnythingOfType("*entity.Wallet")).Return(nil)
+		mockRepo.On("GetByID", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), uint(1)).Return(wallet, nil)
+		mockRepo.On("Update", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), mock.AnythingOfType("*entity.Wallet")).Return(nil)
 
 		// Execute
 		result, err := service.UpdateWalletBalance(context.Background(), 1, req)
@@ -269,7 +269,7 @@ func TestWalletService_UpdateWalletBalance(t *testing.T) {
 		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
 		db, _ := testutil.SetupTestDB()
-		service := NewWalletService(db, mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
+		service := NewWalletService(testutil.NewMockTransactionManager(db), mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
 
 		wallet := &entity.Wallet{
 			ID:        1,
@@ -287,8 +287,8 @@ func TestWalletService_UpdateWalletBalance(t *testing.T) {
 		}
 
 		// Mock expectations
-		mockRepo.On("GetByID", context.Background(), uint(1)).Return(wallet, nil)
-		mockRepo.On("Update", context.Background(), mock.AnythingOfType("*entity.Wallet")).Return(nil)
+		mockRepo.On("GetByID", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), uint(1)).Return(wallet, nil)
+		mockRepo.On("Update", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), mock.AnythingOfType("*entity.Wallet")).Return(nil)
 
 		// Execute
 		result, err := service.UpdateWalletBalance(context.Background(), 1, req)
@@ -307,7 +307,7 @@ func TestWalletService_UpdateWalletBalance(t *testing.T) {
 		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
 		db, _ := testutil.SetupTestDB()
-		service := NewWalletService(db, mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
+		service := NewWalletService(testutil.NewMockTransactionManager(db), mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
 
 		wallet := &entity.Wallet{
 			ID:        1,
@@ -325,7 +325,7 @@ func TestWalletService_UpdateWalletBalance(t *testing.T) {
 		}
 
 		// Mock expectations
-		mockRepo.On("GetByID", context.Background(), uint(1)).Return(wallet, nil)
+		mockRepo.On("GetByID", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), uint(1)).Return(wallet, nil)
 
 		// Execute
 		_, err := service.UpdateWalletBalance(context.Background(), 1, req)
@@ -341,7 +341,7 @@ func TestWalletService_UpdateWalletBalance(t *testing.T) {
 		mockRepo := &testutil.MockWalletRepository{}
 		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		service := NewWalletService(nil, mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
+		service := NewWalletService(testutil.NewMockTransactionManager(nil), mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
 
 		wallet := &entity.Wallet{
 			ID:        1,
@@ -359,7 +359,7 @@ func TestWalletService_UpdateWalletBalance(t *testing.T) {
 		}
 
 		// Mock expectations
-		mockRepo.On("GetByID", context.Background(), uint(1)).Return(wallet, nil)
+		mockRepo.On("GetByID", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), uint(1)).Return(wallet, nil)
 
 		// Execute
 		_, err := service.UpdateWalletBalance(context.Background(), 1, req)
@@ -377,7 +377,7 @@ func TestWalletService_GetWallets(t *testing.T) {
 		mockRepo := &testutil.MockWalletRepository{}
 		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		service := NewWalletService(nil, mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
+		service := NewWalletService(testutil.NewMockTransactionManager(nil), mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
 
 		wallets := []entity.Wallet{
 			{
@@ -425,7 +425,7 @@ func TestWalletService_DeleteWallet(t *testing.T) {
 		mockRepo := &testutil.MockWalletRepository{}
 		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		service := NewWalletService(nil, mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
+		service := NewWalletService(testutil.NewMockTransactionManager(nil), mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
 
 		wallet := &entity.Wallet{
 			ID:        1,
@@ -438,7 +438,7 @@ func TestWalletService_DeleteWallet(t *testing.T) {
 		}
 
 		// Mock expectations
-		mockRepo.On("GetByID", context.Background(), uint(1)).Return(wallet, nil)
+		mockRepo.On("GetByID", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), uint(1)).Return(wallet, nil)
 		mockRepo.On("Delete", context.Background(), uint(1)).Return(nil)
 
 		// Execute
@@ -454,7 +454,7 @@ func TestWalletService_DeleteWallet(t *testing.T) {
 		mockRepo := &testutil.MockWalletRepository{}
 		mockUserService := &testutil.MockUserService{}
 		logger := testutil.NewSilentLogger()
-		service := NewWalletService(nil, mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
+		service := NewWalletService(testutil.NewMockTransactionManager(nil), mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
 
 		// Mock expectations
 		mockRepo.On("GetByID", context.Background(), uint(999)).Return(nil, gorm.ErrRecordNotFound)
@@ -468,255 +468,6 @@ func TestWalletService_DeleteWallet(t *testing.T) {
 	})
 }
 
-func TestWalletService_TransferFunds(t *testing.T) {
-	t.Run("should transfer funds successfully", func(t *testing.T) {
-		// Setup
-		mockRepo := &testutil.MockWalletRepository{}
-		mockUserService := &testutil.MockUserService{}
-		logger := testutil.NewSilentLogger()
-		service := NewWalletService(nil, mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
-
-		fromWallet := &entity.Wallet{
-			ID:        1,
-			UserID:    1,
-			Balance:   1000000,
-			Currency:  "IDR",
-			Status:    entity.WalletStatusActive,
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-		}
-		toWallet := &entity.Wallet{
-			ID:        2,
-			UserID:    2,
-			Balance:   500000,
-			Currency:  "IDR",
-			Status:    entity.WalletStatusActive,
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-		}
-		req := &dto.TransferRequest{
-			FromWalletID: 1,
-			ToWalletID:   2,
-			Amount:       250000,
-			Description:  "Test transfer",
-		}
-
-		// Mock expectations
-		mockRepo.On("GetByID", context.Background(), uint(1)).Return(fromWallet, nil)
-		mockRepo.On("GetByID", context.Background(), uint(2)).Return(toWallet, nil)
-		mockRepo.On("Update", context.Background(), mock.MatchedBy(func(w *entity.Wallet) bool {
-			return w.ID == 1 && w.Balance == 750000
-		})).Return(nil)
-		mockRepo.On("Update", context.Background(), mock.MatchedBy(func(w *entity.Wallet) bool {
-			return w.ID == 2 && w.Balance == 750000
-		})).Return(nil)
-
-		// Execute
-		result, err := service.TransferFunds(context.Background(), req)
-
-		// Assert
-		assert.NoError(t, err)
-		assert.NotNil(t, result)
-		assert.Equal(t, uint(1), result.FromWalletID)
-		assert.Equal(t, uint(2), result.ToWalletID)
-		assert.Equal(t, float64(250000), result.Amount)
-		assert.Equal(t, float64(1000000), result.FromPrevBalance)
-		assert.Equal(t, float64(750000), result.FromNewBalance)
-		assert.Equal(t, float64(500000), result.ToPrevBalance)
-		assert.Equal(t, float64(750000), result.ToNewBalance)
-		assert.Equal(t, "success", result.Status)
-		mockRepo.AssertExpectations(t)
-	})
-
-	t.Run("should return error if transferring to same wallet", func(t *testing.T) {
-		// Setup
-		mockRepo := &testutil.MockWalletRepository{}
-		mockUserService := &testutil.MockUserService{}
-		logger := testutil.NewSilentLogger()
-		service := NewWalletService(nil, mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
-
-		req := &dto.TransferRequest{
-			FromWalletID: 1,
-			ToWalletID:   1, // Same wallet
-			Amount:       250000,
-			Description:  "Invalid transfer",
-		}
-
-		// Execute
-		result, err := service.TransferFunds(context.Background(), req)
-
-		// Assert
-		assert.Error(t, err)
-		assert.Nil(t, result)
-		assert.Equal(t, "cannot transfer to the same wallet", err.Error())
-	})
-
-	t.Run("should return error if source wallet not found", func(t *testing.T) {
-		// Setup
-		mockRepo := &testutil.MockWalletRepository{}
-		mockUserService := &testutil.MockUserService{}
-		logger := testutil.NewSilentLogger()
-		service := NewWalletService(nil, mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
-
-		req := &dto.TransferRequest{
-			FromWalletID: 999,
-			ToWalletID:   2,
-			Amount:       250000,
-			Description:  "Test transfer",
-		}
-
-		// Mock expectations
-		mockRepo.On("GetByID", context.Background(), uint(999)).Return(nil, gorm.ErrRecordNotFound)
-
-		// Execute
-		result, err := service.TransferFunds(context.Background(), req)
-
-		// Assert
-		assert.Error(t, err)
-		assert.Nil(t, result)
-		assert.Equal(t, "source wallet not found", err.Error())
-		mockRepo.AssertExpectations(t)
-	})
-
-	t.Run("should return error if destination wallet not found", func(t *testing.T) {
-		// Setup
-		mockRepo := &testutil.MockWalletRepository{}
-		mockUserService := &testutil.MockUserService{}
-		logger := testutil.NewSilentLogger()
-		service := NewWalletService(nil, mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
-
-		fromWallet := &entity.Wallet{
-			ID:        1,
-			UserID:    1,
-			Balance:   1000000,
-			Currency:  "IDR",
-			Status:    entity.WalletStatusActive,
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-		}
-		req := &dto.TransferRequest{
-			FromWalletID: 1,
-			ToWalletID:   999,
-			Amount:       250000,
-			Description:  "Test transfer",
-		}
-
-		// Mock expectations
-		mockRepo.On("GetByID", context.Background(), uint(1)).Return(fromWallet, nil)
-		mockRepo.On("GetByID", context.Background(), uint(999)).Return(nil, gorm.ErrRecordNotFound)
-
-		// Execute
-		result, err := service.TransferFunds(context.Background(), req)
-
-		// Assert
-		assert.Error(t, err)
-		assert.Nil(t, result)
-		assert.Equal(t, "destination wallet not found", err.Error())
-		mockRepo.AssertExpectations(t)
-	})
-
-	t.Run("should return error if insufficient balance", func(t *testing.T) {
-		// Setup
-		mockRepo := &testutil.MockWalletRepository{}
-		mockUserService := &testutil.MockUserService{}
-		logger := testutil.NewSilentLogger()
-		service := NewWalletService(nil, mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
-
-		fromWallet := &entity.Wallet{
-			ID:        1,
-			UserID:    1,
-			Balance:   100000,
-			Currency:  "IDR",
-			Status:    entity.WalletStatusActive,
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-		}
-		toWallet := &entity.Wallet{
-			ID:        2,
-			UserID:    2,
-			Balance:   500000,
-			Currency:  "IDR",
-			Status:    entity.WalletStatusActive,
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-		}
-		req := &dto.TransferRequest{
-			FromWalletID: 1,
-			ToWalletID:   2,
-			Amount:       250000, // More than balance
-			Description:  "Test transfer",
-		}
-
-		// Mock expectations
-		mockRepo.On("GetByID", context.Background(), uint(1)).Return(fromWallet, nil)
-		mockRepo.On("GetByID", context.Background(), uint(2)).Return(toWallet, nil)
-
-		// Execute
-		result, err := service.TransferFunds(context.Background(), req)
-
-		// Assert
-		assert.Error(t, err)
-		assert.Nil(t, result)
-		assert.Equal(t, "insufficient balance for transfer", err.Error())
-		mockRepo.AssertExpectations(t)
-	})
-
-	t.Run("should rollback source wallet on destination update failure", func(t *testing.T) {
-		// Setup
-		mockRepo := &testutil.MockWalletRepository{}
-		mockUserService := &testutil.MockUserService{}
-		logger := testutil.NewSilentLogger()
-		service := NewWalletService(nil, mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
-
-		fromWallet := &entity.Wallet{
-			ID:        1,
-			UserID:    1,
-			Balance:   1000000,
-			Currency:  "IDR",
-			Status:    entity.WalletStatusActive,
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-		}
-		toWallet := &entity.Wallet{
-			ID:        2,
-			UserID:    2,
-			Balance:   500000,
-			Currency:  "IDR",
-			Status:    entity.WalletStatusActive,
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-		}
-		req := &dto.TransferRequest{
-			FromWalletID: 1,
-			ToWalletID:   2,
-			Amount:       250000,
-			Description:  "Test transfer",
-		}
-
-		// Mock expectations
-		mockRepo.On("GetByID", context.Background(), uint(1)).Return(fromWallet, nil)
-		mockRepo.On("GetByID", context.Background(), uint(2)).Return(toWallet, nil)
-		mockRepo.On("Update", context.Background(), mock.MatchedBy(func(w *entity.Wallet) bool {
-			return w.ID == 1
-		})).Return(nil).Once()
-		mockRepo.On("Update", context.Background(), mock.MatchedBy(func(w *entity.Wallet) bool {
-			return w.ID == 2
-		})).Return(errors.New("database error")).Once()
-		// Rollback update
-		mockRepo.On("Update", context.Background(), mock.MatchedBy(func(w *entity.Wallet) bool {
-			return w.ID == 1 && w.Balance == 1000000
-		})).Return(nil).Once()
-
-		// Execute
-		result, err := service.TransferFunds(context.Background(), req)
-
-		// Assert
-		assert.Error(t, err)
-		assert.Nil(t, result)
-		mockRepo.AssertExpectations(t)
-	})
-}
-
 func TestWalletService_Transfer(t *testing.T) {
 	t.Run("should reject transfer when sender is regular user", func(t *testing.T) {
 		// Setup
@@ -725,7 +476,7 @@ func TestWalletService_Transfer(t *testing.T) {
 		mockTxRepo := &testutil.MockTransactionRepository{}
 		logger := testutil.NewSilentLogger()
 		db, _ := testutil.SetupTestDB()
-		service := NewWalletService(db, mockRepo, mockTxRepo, mockUserService, logger)
+		service := NewWalletService(testutil.NewMockTransactionManager(db), mockRepo, mockTxRepo, mockUserService, logger)
 
 		senderID := uint(5)
 		recipientID := uint(6)
@@ -762,7 +513,7 @@ func TestWalletService_Transfer(t *testing.T) {
 		mockTxRepo := &testutil.MockTransactionRepository{}
 		logger := testutil.NewSilentLogger()
 		db, _ := testutil.SetupTestDB()
-		service := NewWalletService(db, mockRepo, mockTxRepo, mockUserService, logger)
+		service := NewWalletService(testutil.NewMockTransactionManager(db), mockRepo, mockTxRepo, mockUserService, logger)
 
 		senderID := uint(7)
 		recipientID := uint(8)
@@ -792,7 +543,7 @@ func TestWalletService_Transfer(t *testing.T) {
 		mockTxRepo := &testutil.MockTransactionRepository{}
 		logger := testutil.NewSilentLogger()
 		db, _ := testutil.SetupTestDB()
-		service := NewWalletService(db, mockRepo, mockTxRepo, mockUserService, logger)
+		service := NewWalletService(testutil.NewMockTransactionManager(db), mockRepo, mockTxRepo, mockUserService, logger)
 
 		senderID := uint(9)
 		recipientID := uint(10)
@@ -830,7 +581,7 @@ func TestWalletService_Transfer(t *testing.T) {
 		mockTxRepo := &testutil.MockTransactionRepository{}
 		logger := testutil.NewSilentLogger()
 		db, _ := testutil.SetupTestDB()
-		service := NewWalletService(db, mockRepo, mockTxRepo, mockUserService, logger)
+		service := NewWalletService(testutil.NewMockTransactionManager(db), mockRepo, mockTxRepo, mockUserService, logger)
 
 		senderID := uint(11)
 
@@ -867,7 +618,7 @@ func TestWalletService_Transfer(t *testing.T) {
 		mockTxRepo := &testutil.MockTransactionRepository{}
 		logger := testutil.NewSilentLogger()
 		db, _ := testutil.SetupTestDB()
-		service := NewWalletService(db, mockRepo, mockTxRepo, mockUserService, logger)
+		service := NewWalletService(testutil.NewMockTransactionManager(db), mockRepo, mockTxRepo, mockUserService, logger)
 
 		senderID := uint(12)
 		recipientID := uint(13)
@@ -914,7 +665,7 @@ func TestWalletService_Transfer(t *testing.T) {
 		mockTxRepo := &testutil.MockTransactionRepository{}
 		logger := testutil.NewSilentLogger()
 		db, _ := testutil.SetupTestDB()
-		service := NewWalletService(db, mockRepo, mockTxRepo, mockUserService, logger)
+		service := NewWalletService(testutil.NewMockTransactionManager(db), mockRepo, mockTxRepo, mockUserService, logger)
 
 		senderID := uint(14)
 		recipientID := uint(15)
@@ -970,7 +721,7 @@ func TestWalletService_Transfer(t *testing.T) {
 		mockTxRepo := &testutil.MockTransactionRepository{}
 		logger := testutil.NewSilentLogger()
 		db, _ := testutil.SetupTestDB()
-		service := NewWalletService(db, mockRepo, mockTxRepo, mockUserService, logger)
+		service := NewWalletService(testutil.NewMockTransactionManager(db), mockRepo, mockTxRepo, mockUserService, logger)
 
 		senderID := uint(16)
 		recipientID := uint(17)

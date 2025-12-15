@@ -10,6 +10,7 @@ import (
 
 	"go.uber.org/zap"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // WalletWithUserData represents wallet joined with user information
@@ -32,6 +33,8 @@ type WalletRepository interface {
 	Create(ctx context.Context, wallet *entity.Wallet) error
 	GetByID(ctx context.Context, id uint) (*entity.Wallet, error)
 	GetByUserID(ctx context.Context, userID uint) (*entity.Wallet, error)
+	GetByIDForUpdate(ctx context.Context, id uint) (*entity.Wallet, error)
+	GetByUserIDForUpdate(ctx context.Context, userID uint) (*entity.Wallet, error)
 	GetAll(ctx context.Context, filter *dto.WalletFilter) ([]entity.Wallet, int64, error)
 	Update(ctx context.Context, wallet *entity.Wallet) error
 	Delete(ctx context.Context, id uint) error
@@ -77,6 +80,28 @@ func (r *walletRepository) GetByUserID(ctx context.Context, userID uint) (*entit
 	err := db.Where("user_id = ?", userID).First(&wallet).Error
 	if err != nil {
 		r.logger.Error("Failed to get wallet by user ID", zap.Uint("user_id", userID), zap.Error(err))
+		return nil, err
+	}
+	return &wallet, nil
+}
+
+func (r *walletRepository) GetByIDForUpdate(ctx context.Context, id uint) (*entity.Wallet, error) {
+	var wallet entity.Wallet
+	db := database.GetDB(ctx, r.db)
+	err := db.Clauses(clause.Locking{Strength: "UPDATE"}).First(&wallet, id).Error
+	if err != nil {
+		r.logger.Error("Failed to get wallet by ID for update", zap.Uint("id", id), zap.Error(err))
+		return nil, err
+	}
+	return &wallet, nil
+}
+
+func (r *walletRepository) GetByUserIDForUpdate(ctx context.Context, userID uint) (*entity.Wallet, error) {
+	var wallet entity.Wallet
+	db := database.GetDB(ctx, r.db)
+	err := db.Clauses(clause.Locking{Strength: "UPDATE"}).Where("user_id = ?", userID).First(&wallet).Error
+	if err != nil {
+		r.logger.Error("Failed to get wallet by user ID for update", zap.Uint("user_id", userID), zap.Error(err))
 		return nil, err
 	}
 	return &wallet, nil

@@ -13,7 +13,6 @@ import (
 
 	"go.uber.org/zap"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type WalletService interface {
@@ -150,13 +149,9 @@ func (s *walletService) UpdateWalletBalance(ctx context.Context, walletID uint, 
 
 	// Execute within transaction using tx_manager
 	err := s.txManager.WithinTransaction(ctx, func(txCtx context.Context) error {
-		// Get wallet repository
-
-		tx := database.GetDB(txCtx, nil)
-
-		// Get wallet with row lock to prevent concurrent updates
-		var w entity.Wallet
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&w, walletID).Error; err != nil {
+		// Get wallet repository with transaction context
+		w, err := s.repo.GetByIDForUpdate(txCtx, walletID)
+		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return errors.New("wallet not found")
 			}
@@ -164,7 +159,7 @@ func (s *walletService) UpdateWalletBalance(ctx context.Context, walletID uint, 
 		}
 
 		previousBalance = w.Balance
-		wallet = &w
+		wallet = w
 
 		// Determine transaction type for transaction record
 		var transactionType entity.TransactionType
@@ -183,10 +178,10 @@ func (s *walletService) UpdateWalletBalance(ctx context.Context, walletID uint, 
 			return errors.New("invalid transaction type")
 		}
 
-		w.UpdatedAt = time.Now()
+		wallet.UpdatedAt = time.Now()
 
 		// Update wallet within transaction
-		if err := tx.Save(&w).Error; err != nil {
+		if err := s.repo.Update(txCtx, wallet); err != nil {
 			s.logger.Error("Failed to update wallet balance", zap.Uint("wallet_id", walletID), zap.Error(err))
 			return err
 		}
@@ -198,15 +193,70 @@ func (s *walletService) UpdateWalletBalance(ctx context.Context, walletID uint, 
 			Amount:       req.Amount,
 			Status:       entity.TransactionStatusCompleted,
 			Description:  req.Description,
-			BalanceAfter: w.Balance,
+			BalanceAfter: wallet.Balance,
 			CreatedAt:    time.Now(),
 			UpdatedAt:    time.Now(),
 		}
-
-		if err := tx.Create(transaction).Error; err != nil {
+		if err := s.transactionRepo.Create(txCtx, transaction); err != nil {
 			s.logger.Error("Failed to create transaction record", zap.Uint("wallet_id", walletID), zap.Error(err))
 			return err
 		}
+
+		// tx := database.GetDB(txCtx, nil)
+
+		// // Get wallet with row lock to prevent concurrent updates
+		// var w entity.Wallet
+		// if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&w, walletID).Error; err != nil {
+		// 	if errors.Is(err, gorm.ErrRecordNotFound) {
+		// 		return errors.New("wallet not found")
+		// 	}
+		// 	return err
+		// }
+
+		// previousBalance = w.Balance
+		// wallet = &w
+
+		// // Determine transaction type for transaction record
+		// var transactionType entity.TransactionType
+		// if req.TransactionType == "credit" {
+		// 	w.Balance += req.Amount
+		// 	transactionType = entity.TransactionTypeDeposit
+		// } else if req.TransactionType == "debit" {
+		// 	// Check if wallet has sufficient balance
+		// 	if w.Balance < req.Amount {
+		// 		s.logger.Warn("Insufficient balance", zap.Uint("wallet_id", walletID), zap.Float64("balance", w.Balance), zap.Float64("amount", req.Amount))
+		// 		return errors.New("insufficient balance")
+		// 	}
+		// 	w.Balance -= req.Amount
+		// 	transactionType = entity.TransactionTypeWithdrawal
+		// } else {
+		// 	return errors.New("invalid transaction type")
+		// }
+
+		// w.UpdatedAt = time.Now()
+
+		// // Update wallet within transaction
+		// if err := tx.Save(&w).Error; err != nil {
+		// 	s.logger.Error("Failed to update wallet balance", zap.Uint("wallet_id", walletID), zap.Error(err))
+		// 	return err
+		// }
+
+		// // Create transaction record within transaction
+		// transaction := &entity.WalletTransaction{
+		// 	WalletID:     walletID,
+		// 	Type:         transactionType,
+		// 	Amount:       req.Amount,
+		// 	Status:       entity.TransactionStatusCompleted,
+		// 	Description:  req.Description,
+		// 	BalanceAfter: w.Balance,
+		// 	CreatedAt:    time.Now(),
+		// 	UpdatedAt:    time.Now(),
+		// }
+
+		// if err := tx.Create(transaction).Error; err != nil {
+		// 	s.logger.Error("Failed to create transaction record", zap.Uint("wallet_id", walletID), zap.Error(err))
+		// 	return err
+		// }
 
 		return nil
 	})

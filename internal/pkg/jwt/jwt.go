@@ -6,6 +6,7 @@ import (
 	"time"
 
 	gojwt "github.com/golang-jwt/jwt/v5"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/config"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -26,15 +27,21 @@ type JWTManager struct {
 	redisClient *redis.Client
 }
 
-func NewJWTManager(config JWTConfig) *JWTManager {
+func NewJWTManager(cfg *config.Config) *JWTManager {
 	return &JWTManager{
-		config: config,
+		config: JWTConfig{
+			SecretKey: cfg.JWT.SecretKey,
+			Expiry:    cfg.JWT.Expiry,
+		},
 	}
 }
 
-func NewJWTManagerWithRedis(config JWTConfig, redisClient *redis.Client) *JWTManager {
+func NewJWTManagerWithRedis(cfg *config.Config, redisClient *redis.Client) *JWTManager {
 	return &JWTManager{
-		config:      config,
+		config: JWTConfig{
+			SecretKey: cfg.JWT.SecretKey,
+			Expiry:    cfg.JWT.Expiry,
+		},
 		redisClient: redisClient,
 	}
 }

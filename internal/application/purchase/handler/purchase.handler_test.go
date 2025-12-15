@@ -21,6 +21,8 @@ import (
 	walletEntity "github.com/novriyantoAli/wallet-ms-backend/internal/application/wallet/entity"
 	walletRepo "github.com/novriyantoAli/wallet-ms-backend/internal/application/wallet/repository"
 	walletService "github.com/novriyantoAli/wallet-ms-backend/internal/application/wallet/service"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/config"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/client"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/jwt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -53,10 +55,13 @@ func createWalletServiceForHandler(t *testing.T, db *gorm.DB, zapLogger *zap.Log
 	walletRepository := walletRepo.NewWalletRepository(db, zapLogger)
 	transactionRepository := walletRepo.NewTransactionRepository(db, zapLogger)
 	userRepository := userRepo.NewUserRepository(db, zapLogger)
-	jwtManager := jwt.NewJWTManager(jwt.JWTConfig{
-		SecretKey: "test-secret-key",
-		Expiry:    24 * time.Hour,
-	})
+	cfg := &config.Config{
+		JWT: config.JWTConfig{
+			SecretKey: "test-secret-key",
+			Expiry:    24 * time.Hour,
+		},
+	}
+	jwtManager := jwt.NewJWTManager(cfg)
 	userSvc := userService.NewUserService(userRepository, walletRepository, jwtManager, zapLogger)
 	return walletService.NewWalletService(db, walletRepository, transactionRepository, userSvc, zapLogger)
 }
@@ -68,7 +73,8 @@ func setupPurchaseHandlerForTest(t *testing.T) (*PurchaseHandler, *gorm.DB) {
 	purchaseRepoInstance := purchaseRepo.NewPurchaseRepository(db, logger)
 	productRepo := repository.NewProductRepository(db, logger)
 	walletSvc := createWalletServiceForHandler(t, db, logger)
-	purchaseSvc := service.NewPurchaseService(db, purchaseRepoInstance, productRepo, walletSvc, logger)
+	authClient := &client.AuthServiceClient{}
+	purchaseSvc := service.NewPurchaseService(db, purchaseRepoInstance, productRepo, walletSvc, authClient, logger)
 
 	handler := NewPurchaseHandler(purchaseSvc, logger)
 	return handler, db

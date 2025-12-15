@@ -1,21 +1,25 @@
 package repository
 
 import (
+	"context"
+	"strings"
+
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/product/dto"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/product/entity"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/database"
 
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
 type ProductRepository interface {
-	Create(product *entity.Product) error
-	GetByID(id uint) (*entity.Product, error)
-	GetBySKU(sku string) (*entity.Product, error)
-	GetAll(filter *dto.ProductFilter) ([]entity.Product, int64, error)
-	GetActiveProducts(filter *dto.ProductFilter) ([]entity.Product, int64, error)
-	Update(product *entity.Product) error
-	Delete(id uint) error
+	Create(ctx context.Context, product *entity.Product) error
+	GetByID(ctx context.Context, id uint) (*entity.Product, error)
+	GetBySKU(ctx context.Context, sku string) (*entity.Product, error)
+	GetAll(ctx context.Context, filter *dto.ProductFilter) ([]entity.Product, int64, error)
+	GetActiveProducts(ctx context.Context, filter *dto.ProductFilter) ([]entity.Product, int64, error)
+	Update(ctx context.Context, product *entity.Product) error
+	Delete(ctx context.Context, id uint) error
 }
 
 type productRepository struct {
@@ -30,52 +34,47 @@ func NewProductRepository(db *gorm.DB, logger *zap.Logger) ProductRepository {
 	}
 }
 
-func (r *productRepository) Create(product *entity.Product) error {
-	if err := r.db.Create(product).Error; err != nil {
-		r.logger.Error("Failed to create product", zap.Error(err), zap.String("sku", product.SKU))
-		return err
-	}
-	return nil
+func (r *productRepository) Create(ctx context.Context, product *entity.Product) error {
+	r.logger.Info("Creating product", zap.String("sku", product.SKU))
+	db := database.GetDB(ctx, r.db)
+	return db.Create(product).Error
 }
 
-func (r *productRepository) GetByID(id uint) (*entity.Product, error) {
+func (r *productRepository) GetByID(ctx context.Context, id uint) (*entity.Product, error) {
 	var product entity.Product
-	if err := r.db.Where("id = ?", id).First(&product).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			r.logger.Debug("Product not found", zap.Uint("id", id))
-			return nil, err
-		}
-		r.logger.Error("Failed to get product by ID", zap.Error(err), zap.Uint("id", id))
+	db := database.GetDB(ctx, r.db)
+	err := db.First(&product, id).Error
+	if err != nil {
+		r.logger.Error("Failed to get product by ID", zap.Uint("id", id), zap.Error(err))
 		return nil, err
 	}
 	return &product, nil
 }
 
-func (r *productRepository) GetBySKU(sku string) (*entity.Product, error) {
+func (r *productRepository) GetBySKU(ctx context.Context, sku string) (*entity.Product, error) {
 	var product entity.Product
-	if err := r.db.Where("sku = ?", sku).First(&product).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			r.logger.Debug("Product not found by SKU", zap.String("sku", sku))
-			return nil, err
-		}
-		r.logger.Error("Failed to get product by SKU", zap.Error(err), zap.String("sku", sku))
+	db := database.GetDB(ctx, r.db)
+	err := db.Where("sku = ?", sku).First(&product).Error
+	if err != nil {
+		r.logger.Error("Failed to get product by SKU", zap.String("sku", sku), zap.Error(err))
 		return nil, err
 	}
 	return &product, nil
 }
 
-func (r *productRepository) GetAll(filter *dto.ProductFilter) ([]entity.Product, int64, error) {
+func (r *productRepository) GetAll(ctx context.Context, filter *dto.ProductFilter) ([]entity.Product, int64, error) {
 	var products []entity.Product
 	var total int64
 
-	query := r.db
+	db := database.GetDB(ctx, r.db)
+	query := db
 
 	if filter.Search != "" {
-		query = query.Where("name ILIKE ? OR description ILIKE ?", "%"+filter.Search+"%", "%"+filter.Search+"%")
+		query = query.Where("UPPER(name) LIKE ? OR UPPER(description) LIKE ?", "%"+strings.ToUpper(filter.Search)+"%", "%"+strings.ToUpper(filter.Search)+"%")
 	}
 
 	if filter.SKU != "" {
-		query = query.Where("sku ILIKE ?", "%"+filter.SKU+"%")
+		query = query.Where("UPPER(sku) LIKE ?", "%"+strings.ToUpper(filter.SKU)+"%")
 	}
 
 	if err := query.Model(&entity.Product{}).Count(&total).Error; err != nil {
@@ -92,11 +91,12 @@ func (r *productRepository) GetAll(filter *dto.ProductFilter) ([]entity.Product,
 	return products, total, nil
 }
 
-func (r *productRepository) GetActiveProducts(filter *dto.ProductFilter) ([]entity.Product, int64, error) {
+func (r *productRepository) GetActiveProducts(ctx context.Context, filter *dto.ProductFilter) ([]entity.Product, int64, error) {
 	var products []entity.Product
 	var total int64
 
-	query := r.db.Where("status = ?", entity.ProductStatusActive)
+	db := database.GetDB(ctx, r.db)
+	query := db.Where("status = ?", entity.ProductStatusActive)
 
 	if filter.SKU != "" {
 		query = query.Where("sku = ?", filter.SKU)
@@ -116,19 +116,14 @@ func (r *productRepository) GetActiveProducts(filter *dto.ProductFilter) ([]enti
 	return products, total, nil
 }
 
-func (r *productRepository) Update(product *entity.Product) error {
-	if err := r.db.Save(product).Error; err != nil {
-		r.logger.Error("Failed to update product", zap.Error(err), zap.Uint("id", product.ID))
-		return err
-	}
-	return nil
+func (r *productRepository) Update(ctx context.Context, product *entity.Product) error {
+	r.logger.Info("Updating product", zap.Uint("id", product.ID))
+	db := database.GetDB(ctx, r.db)
+	return db.Save(product).Error
 }
 
-func (r *productRepository) Delete(id uint) error {
-	// Use Unscoped to perform hard delete for cascade delete to work
-	if err := r.db.Unscoped().Delete(&entity.Product{}, id).Error; err != nil {
-		r.logger.Error("Failed to delete product", zap.Error(err), zap.Uint("id", id))
-		return err
-	}
-	return nil
+func (r *productRepository) Delete(ctx context.Context, id uint) error {
+	r.logger.Info("Deleting product", zap.Uint("id", id))
+	db := database.GetDB(ctx, r.db)
+	return db.Unscoped().Delete(&entity.Product{}, id).Error
 }

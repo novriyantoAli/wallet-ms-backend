@@ -33,11 +33,13 @@ build-all: build build-worker build-migration build-grpc
 proto-gen:
 	protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative --go-grpc_opt=require_unimplemented_servers=false api/proto/user/user.proto
 	protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative --go-grpc_opt=require_unimplemented_servers=false api/proto/payment/payment.proto
+	protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative --go-grpc_opt=require_unimplemented_servers=false api/proto/auth/auth.proto
 
 # Clean generated proto files
 proto-clean:
 	rm -f api/proto/user/user.pb.go api/proto/user/user_grpc.pb.go
 	rm -f api/proto/payment/payment.pb.go api/proto/payment/payment_grpc.pb.go
+	rm -f api/proto/auth/auth.pb.go api/proto/auth/auth_grpc.pb.go
 
 # Install proto tools
 proto-tools:

@@ -16,6 +16,7 @@ import (
 	walletEntity "github.com/novriyantoAli/wallet-ms-backend/internal/application/wallet/entity"
 	walletRepo "github.com/novriyantoAli/wallet-ms-backend/internal/application/wallet/repository"
 	walletService "github.com/novriyantoAli/wallet-ms-backend/internal/application/wallet/service"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/config"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/jwt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,6 +25,7 @@ import (
 	"gorm.io/gorm/logger"
 
 	"github.com/glebarez/sqlite"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/client"
 )
 
 func setupPurchaseServiceTestDB(t *testing.T) *gorm.DB {
@@ -48,10 +50,13 @@ func createWalletService(t *testing.T, db *gorm.DB, logger *zap.Logger) walletSe
 	walletRepository := walletRepo.NewWalletRepository(db, logger)
 	transactionRepository := walletRepo.NewTransactionRepository(db, logger)
 	userRepository := userRepo.NewUserRepository(db, logger)
-	jwtManager := jwt.NewJWTManager(jwt.JWTConfig{
-		SecretKey: "test-secret-key",
-		Expiry:    24 * time.Hour,
-	})
+	cfg := &config.Config{
+		JWT: config.JWTConfig{
+			SecretKey: "test-secret-key",
+			Expiry:    24 * time.Hour,
+		},
+	}
+	jwtManager := jwt.NewJWTManager(cfg)
 	userSvc := userService.NewUserService(userRepository, walletRepository, jwtManager, logger)
 	return walletService.NewWalletService(db, walletRepository, transactionRepository, userSvc, logger)
 }
@@ -97,7 +102,9 @@ func TestPurchaseService_CreatePurchase(t *testing.T) {
 	purchaseRepoInstance := purchaseRepo.NewPurchaseRepository(db, logger)
 	productRepo := repository.NewProductRepository(db, logger)
 	walletSvc := createWalletService(t, db, logger)
-	svc := NewPurchaseService(db, purchaseRepoInstance, productRepo, walletSvc, logger)
+	// Create mock auth client
+	authClient := &client.AuthServiceClient{}
+	svc := NewPurchaseService(db, purchaseRepoInstance, productRepo, walletSvc, authClient, logger)
 
 	user, _ := createTestUserWithWallet(t, db, 1000.0)
 	product := createTestProductWithStock(t, db, 100.0, 50)
@@ -191,7 +198,8 @@ func TestPurchaseService_GetPurchaseByID(t *testing.T) {
 	purchaseRepoInstance := purchaseRepo.NewPurchaseRepository(db, logger)
 	productRepo := repository.NewProductRepository(db, logger)
 	walletSvc := createWalletService(t, db, logger)
-	svc := NewPurchaseService(db, purchaseRepoInstance, productRepo, walletSvc, logger)
+	authClient := &client.AuthServiceClient{}
+	svc := NewPurchaseService(db, purchaseRepoInstance, productRepo, walletSvc, authClient, logger)
 
 	user, _ := createTestUserWithWallet(t, db, 10000.0)
 	product := createTestProductWithStock(t, db, 100.0, 50)
@@ -248,7 +256,8 @@ func TestPurchaseService_GetUserPurchases(t *testing.T) {
 	purchaseRepoInstance := purchaseRepo.NewPurchaseRepository(db, logger)
 	productRepo := repository.NewProductRepository(db, logger)
 	walletSvc := createWalletService(t, db, logger)
-	svc := NewPurchaseService(db, purchaseRepoInstance, productRepo, walletSvc, logger)
+	authClient := &client.AuthServiceClient{}
+	svc := NewPurchaseService(db, purchaseRepoInstance, productRepo, walletSvc, authClient, logger)
 
 	user, _ := createTestUserWithWallet(t, db, 50000.0)
 	product := createTestProductWithStock(t, db, 100.0, 100)
@@ -312,7 +321,8 @@ func TestPurchaseService_TransactionIntegrity(t *testing.T) {
 	purchaseRepoInstance := purchaseRepo.NewPurchaseRepository(db, logger)
 	productRepo := repository.NewProductRepository(db, logger)
 	walletSvc := createWalletService(t, db, logger)
-	svc := NewPurchaseService(db, purchaseRepoInstance, productRepo, walletSvc, logger)
+	authClient := &client.AuthServiceClient{}
+	svc := NewPurchaseService(db, purchaseRepoInstance, productRepo, walletSvc, authClient, logger)
 
 	user, _ := createTestUserWithWallet(t, db, 1000.0)
 	product := createTestProductWithStock(t, db, 100.0, 10)

@@ -39,6 +39,7 @@ func NewProductHandler(service service.ProductService, wifiService service.WiFiP
 // @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/products [post]
 func (h *ProductHandler) CreateProduct(c *gin.Context) {
+	ctx := c.Request.Context()
 	var req dto.CreateProductRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.logger.Warn("Invalid create product request", zap.Error(err))
@@ -46,7 +47,7 @@ func (h *ProductHandler) CreateProduct(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.service.CreateProduct(&req)
+	resp, err := h.service.CreateProduct(ctx, &req)
 	if err != nil {
 		h.logger.Error("Failed to create product", zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -67,6 +68,7 @@ func (h *ProductHandler) CreateProduct(c *gin.Context) {
 // @Failure 404 {object} map[string]interface{}
 // @Router /api/v1/products/{id} [get]
 func (h *ProductHandler) GetProduct(c *gin.Context) {
+	ctx := c.Request.Context()
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
@@ -74,7 +76,7 @@ func (h *ProductHandler) GetProduct(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.service.GetProductByID(uint(id))
+	resp, err := h.service.GetProductByID(ctx, uint(id))
 	if err != nil {
 		h.logger.Warn("Product not found", zap.Uint("id", uint(id)), zap.Error(err))
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
@@ -95,13 +97,14 @@ func (h *ProductHandler) GetProduct(c *gin.Context) {
 // @Failure 404 {object} map[string]interface{}
 // @Router /api/v1/products/sku/{sku} [get]
 func (h *ProductHandler) GetProductBySKU(c *gin.Context) {
+	ctx := c.Request.Context()
 	sku := c.Param("sku")
 	if sku == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "SKU is required"})
 		return
 	}
 
-	resp, err := h.service.GetProductBySKU(sku)
+	resp, err := h.service.GetProductBySKU(ctx, sku)
 	if err != nil {
 		h.logger.Warn("Product not found by SKU", zap.String("sku", sku), zap.Error(err))
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
@@ -125,6 +128,7 @@ func (h *ProductHandler) GetProductBySKU(c *gin.Context) {
 // @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/products [get]
 func (h *ProductHandler) ListProducts(c *gin.Context) {
+	ctx := c.Request.Context()
 	page := 1
 	limit := 10
 
@@ -147,7 +151,7 @@ func (h *ProductHandler) ListProducts(c *gin.Context) {
 		Limit:  limit,
 	}
 
-	resp, err := h.service.GetProducts(filter)
+	resp, err := h.service.GetProducts(ctx, filter)
 	if err != nil {
 		h.logger.Error("Failed to list products", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -170,6 +174,7 @@ func (h *ProductHandler) ListProducts(c *gin.Context) {
 // @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/products/active [get]
 func (h *ProductHandler) ListActiveProducts(c *gin.Context) {
+	ctx := c.Request.Context()
 	page := 1
 	limit := 10
 
@@ -191,7 +196,7 @@ func (h *ProductHandler) ListActiveProducts(c *gin.Context) {
 		Limit: limit,
 	}
 
-	resp, err := h.service.GetActiveProducts(filter)
+	resp, err := h.service.GetActiveProducts(ctx, filter)
 	if err != nil {
 		h.logger.Error("Failed to list active products", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -215,6 +220,7 @@ func (h *ProductHandler) ListActiveProducts(c *gin.Context) {
 // @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/products/{id} [put]
 func (h *ProductHandler) UpdateProduct(c *gin.Context) {
+	ctx := c.Request.Context()
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
@@ -229,7 +235,7 @@ func (h *ProductHandler) UpdateProduct(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.service.UpdateProduct(uint(id), &req)
+	resp, err := h.service.UpdateProduct(ctx, uint(id), &req)
 	if err != nil {
 		if err.Error() == "product not found" {
 			h.logger.Warn("Product not found", zap.Uint("id", uint(id)))
@@ -258,6 +264,7 @@ func (h *ProductHandler) UpdateProduct(c *gin.Context) {
 // @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/products/{id}/status [put]
 func (h *ProductHandler) UpdateProductStatus(c *gin.Context) {
+	ctx := c.Request.Context()
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
@@ -272,7 +279,7 @@ func (h *ProductHandler) UpdateProductStatus(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.service.UpdateProductStatus(uint(id), req.Status)
+	resp, err := h.service.UpdateProductStatus(ctx, uint(id), req.Status)
 	if err != nil {
 		if err.Error() == "product not found" {
 			h.logger.Warn("Product not found", zap.Uint("id", uint(id)))
@@ -299,6 +306,7 @@ func (h *ProductHandler) UpdateProductStatus(c *gin.Context) {
 // @Failure 500 {object} map[string]interface{}
 // @Router /api/v1/products/{id} [delete]
 func (h *ProductHandler) DeleteProduct(c *gin.Context) {
+	ctx := c.Request.Context()
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
@@ -306,7 +314,7 @@ func (h *ProductHandler) DeleteProduct(c *gin.Context) {
 		return
 	}
 
-	err = h.service.DeleteProduct(uint(id))
+	err = h.service.DeleteProduct(ctx, uint(id))
 	if err != nil {
 		if err.Error() == "product not found" {
 			h.logger.Warn("Product not found", zap.Uint("id", uint(id)))

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -50,15 +51,15 @@ func TestWalletService_CreateWallet(t *testing.T) {
 
 		// Mock expectations
 		mockUserService.On("GetUserByID", req.UserID).Return(userResponse, nil)
-		mockRepo.On("GetByUserID", req.UserID).Return(nil, gorm.ErrRecordNotFound)
-		mockRepo.On("Create", mock.AnythingOfType("*entity.Wallet")).Return(nil).Run(func(args mock.Arguments) {
-			wallet := args.Get(0).(*entity.Wallet)
+		mockRepo.On("GetByUserID", context.Background(), req.UserID).Return(nil, gorm.ErrRecordNotFound)
+		mockRepo.On("Create", context.Background(), mock.AnythingOfType("*entity.Wallet")).Return(nil).Run(func(args mock.Arguments) {
+			wallet := args.Get(1).(*entity.Wallet)
 			wallet.ID = 1
 		})
-		mockRepo.On("GetByUserIDWithUser", req.UserID).Return(walletWithUser, nil)
+		mockRepo.On("GetByUserIDWithUser", context.Background(), req.UserID).Return(walletWithUser, nil)
 
 		// Execute
-		result, err := service.CreateWallet(req)
+		result, err := service.CreateWallet(context.Background(), req)
 
 		// Assert
 		assert.NoError(t, err)
@@ -89,7 +90,7 @@ func TestWalletService_CreateWallet(t *testing.T) {
 		mockUserService.On("GetUserByID", req.UserID).Return(nil, errors.New("user not found"))
 
 		// Execute
-		_, err := service.CreateWallet(req)
+		_, err := service.CreateWallet(context.Background(), req)
 
 		// Assert
 		assert.Error(t, err)
@@ -121,10 +122,10 @@ func TestWalletService_CreateWallet(t *testing.T) {
 
 		// Mock expectations
 		mockUserService.On("GetUserByID", req.UserID).Return(userResponse, nil)
-		mockRepo.On("GetByUserID", req.UserID).Return(existingWallet, nil)
+		mockRepo.On("GetByUserID", context.Background(), req.UserID).Return(existingWallet, nil)
 
 		// Execute
-		_, err := service.CreateWallet(req)
+		_, err := service.CreateWallet(context.Background(), req)
 
 		// Assert
 		assert.Error(t, err)
@@ -155,10 +156,10 @@ func TestWalletService_GetWalletByID(t *testing.T) {
 		}
 
 		// Mock expectations - use GetByIDWithUser instead of GetByID
-		mockRepo.On("GetByIDWithUser", uint(1)).Return(walletWithUser, nil)
+		mockRepo.On("GetByIDWithUser", context.Background(), uint(1)).Return(walletWithUser, nil)
 
 		// Execute
-		result, err := service.GetWalletByID(1)
+		result, err := service.GetWalletByID(context.Background(), 1)
 
 		// Assert
 		assert.NoError(t, err)
@@ -177,10 +178,10 @@ func TestWalletService_GetWalletByID(t *testing.T) {
 		service := NewWalletService(nil, mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
 
 		// Mock expectations
-		mockRepo.On("GetByIDWithUser", uint(999)).Return(nil, gorm.ErrRecordNotFound)
+		mockRepo.On("GetByIDWithUser", context.Background(), uint(999)).Return(nil, gorm.ErrRecordNotFound)
 
 		// Execute
-		_, err := service.GetWalletByID(999)
+		_, err := service.GetWalletByID(context.Background(), 999)
 
 		// Assert
 		assert.Error(t, err)
@@ -209,10 +210,10 @@ func TestWalletService_GetWalletByUserID(t *testing.T) {
 		}
 
 		// Mock expectations
-		mockRepo.On("GetByUserIDWithUser", uint(1)).Return(walletWithUser, nil)
+		mockRepo.On("GetByUserIDWithUser", context.Background(), uint(1)).Return(walletWithUser, nil)
 
 		// Execute
-		result, err := service.GetWalletByUserID(1)
+		result, err := service.GetWalletByUserID(context.Background(), 1)
 
 		// Assert
 		assert.NoError(t, err)
@@ -247,11 +248,11 @@ func TestWalletService_UpdateWalletBalance(t *testing.T) {
 		}
 
 		// Mock expectations
-		mockRepo.On("GetByID", uint(1)).Return(wallet, nil)
-		mockRepo.On("Update", mock.AnythingOfType("*entity.Wallet")).Return(nil)
+		mockRepo.On("GetByID", context.Background(), uint(1)).Return(wallet, nil)
+		mockRepo.On("Update", context.Background(), mock.AnythingOfType("*entity.Wallet")).Return(nil)
 
 		// Execute
-		result, err := service.UpdateWalletBalance(1, req)
+		result, err := service.UpdateWalletBalance(context.Background(), 1, req)
 
 		// Assert
 		assert.NoError(t, err)
@@ -286,11 +287,11 @@ func TestWalletService_UpdateWalletBalance(t *testing.T) {
 		}
 
 		// Mock expectations
-		mockRepo.On("GetByID", uint(1)).Return(wallet, nil)
-		mockRepo.On("Update", mock.AnythingOfType("*entity.Wallet")).Return(nil)
+		mockRepo.On("GetByID", context.Background(), uint(1)).Return(wallet, nil)
+		mockRepo.On("Update", context.Background(), mock.AnythingOfType("*entity.Wallet")).Return(nil)
 
 		// Execute
-		result, err := service.UpdateWalletBalance(1, req)
+		result, err := service.UpdateWalletBalance(context.Background(), 1, req)
 
 		// Assert
 		assert.NoError(t, err)
@@ -324,10 +325,10 @@ func TestWalletService_UpdateWalletBalance(t *testing.T) {
 		}
 
 		// Mock expectations
-		mockRepo.On("GetByID", uint(1)).Return(wallet, nil)
+		mockRepo.On("GetByID", context.Background(), uint(1)).Return(wallet, nil)
 
 		// Execute
-		_, err := service.UpdateWalletBalance(1, req)
+		_, err := service.UpdateWalletBalance(context.Background(), 1, req)
 
 		// Assert
 		assert.Error(t, err)
@@ -358,10 +359,10 @@ func TestWalletService_UpdateWalletBalance(t *testing.T) {
 		}
 
 		// Mock expectations
-		mockRepo.On("GetByID", uint(1)).Return(wallet, nil)
+		mockRepo.On("GetByID", context.Background(), uint(1)).Return(wallet, nil)
 
 		// Execute
-		_, err := service.UpdateWalletBalance(1, req)
+		_, err := service.UpdateWalletBalance(context.Background(), 1, req)
 
 		// Assert
 		assert.Error(t, err)
@@ -404,10 +405,10 @@ func TestWalletService_GetWallets(t *testing.T) {
 		}
 
 		// Mock expectations
-		mockRepo.On("GetAll", filter).Return(wallets, int64(2), nil)
+		mockRepo.On("GetAllWithUser", context.Background(), filter).Return(wallets, int64(2), nil)
 
 		// Execute
-		result, err := service.GetWallets(filter)
+		result, err := service.GetWallets(context.Background(), filter)
 
 		// Assert
 		assert.NoError(t, err)
@@ -437,11 +438,11 @@ func TestWalletService_DeleteWallet(t *testing.T) {
 		}
 
 		// Mock expectations
-		mockRepo.On("GetByID", uint(1)).Return(wallet, nil)
-		mockRepo.On("Delete", uint(1)).Return(nil)
+		mockRepo.On("GetByID", context.Background(), uint(1)).Return(wallet, nil)
+		mockRepo.On("Delete", context.Background(), uint(1)).Return(nil)
 
 		// Execute
-		err := service.DeleteWallet(1)
+		err := service.DeleteWallet(context.Background(), 1)
 
 		// Assert
 		assert.NoError(t, err)
@@ -456,10 +457,10 @@ func TestWalletService_DeleteWallet(t *testing.T) {
 		service := NewWalletService(nil, mockRepo, &testutil.MockTransactionRepository{}, mockUserService, logger)
 
 		// Mock expectations
-		mockRepo.On("GetByID", uint(999)).Return(nil, gorm.ErrRecordNotFound)
+		mockRepo.On("GetByID", context.Background(), uint(999)).Return(nil, gorm.ErrRecordNotFound)
 
 		// Execute
-		err := service.DeleteWallet(999)
+		err := service.DeleteWallet(context.Background(), 999)
 
 		// Assert
 		assert.Error(t, err)
@@ -501,17 +502,17 @@ func TestWalletService_TransferFunds(t *testing.T) {
 		}
 
 		// Mock expectations
-		mockRepo.On("GetByID", uint(1)).Return(fromWallet, nil)
-		mockRepo.On("GetByID", uint(2)).Return(toWallet, nil)
-		mockRepo.On("Update", mock.MatchedBy(func(w *entity.Wallet) bool {
+		mockRepo.On("GetByID", context.Background(), uint(1)).Return(fromWallet, nil)
+		mockRepo.On("GetByID", context.Background(), uint(2)).Return(toWallet, nil)
+		mockRepo.On("Update", context.Background(), mock.MatchedBy(func(w *entity.Wallet) bool {
 			return w.ID == 1 && w.Balance == 750000
 		})).Return(nil)
-		mockRepo.On("Update", mock.MatchedBy(func(w *entity.Wallet) bool {
+		mockRepo.On("Update", context.Background(), mock.MatchedBy(func(w *entity.Wallet) bool {
 			return w.ID == 2 && w.Balance == 750000
 		})).Return(nil)
 
 		// Execute
-		result, err := service.TransferFunds(req)
+		result, err := service.TransferFunds(context.Background(), req)
 
 		// Assert
 		assert.NoError(t, err)
@@ -542,7 +543,7 @@ func TestWalletService_TransferFunds(t *testing.T) {
 		}
 
 		// Execute
-		result, err := service.TransferFunds(req)
+		result, err := service.TransferFunds(context.Background(), req)
 
 		// Assert
 		assert.Error(t, err)
@@ -565,10 +566,10 @@ func TestWalletService_TransferFunds(t *testing.T) {
 		}
 
 		// Mock expectations
-		mockRepo.On("GetByID", uint(999)).Return(nil, gorm.ErrRecordNotFound)
+		mockRepo.On("GetByID", context.Background(), uint(999)).Return(nil, gorm.ErrRecordNotFound)
 
 		// Execute
-		result, err := service.TransferFunds(req)
+		result, err := service.TransferFunds(context.Background(), req)
 
 		// Assert
 		assert.Error(t, err)
@@ -601,11 +602,11 @@ func TestWalletService_TransferFunds(t *testing.T) {
 		}
 
 		// Mock expectations
-		mockRepo.On("GetByID", uint(1)).Return(fromWallet, nil)
-		mockRepo.On("GetByID", uint(999)).Return(nil, gorm.ErrRecordNotFound)
+		mockRepo.On("GetByID", context.Background(), uint(1)).Return(fromWallet, nil)
+		mockRepo.On("GetByID", context.Background(), uint(999)).Return(nil, gorm.ErrRecordNotFound)
 
 		// Execute
-		result, err := service.TransferFunds(req)
+		result, err := service.TransferFunds(context.Background(), req)
 
 		// Assert
 		assert.Error(t, err)
@@ -647,11 +648,11 @@ func TestWalletService_TransferFunds(t *testing.T) {
 		}
 
 		// Mock expectations
-		mockRepo.On("GetByID", uint(1)).Return(fromWallet, nil)
-		mockRepo.On("GetByID", uint(2)).Return(toWallet, nil)
+		mockRepo.On("GetByID", context.Background(), uint(1)).Return(fromWallet, nil)
+		mockRepo.On("GetByID", context.Background(), uint(2)).Return(toWallet, nil)
 
 		// Execute
-		result, err := service.TransferFunds(req)
+		result, err := service.TransferFunds(context.Background(), req)
 
 		// Assert
 		assert.Error(t, err)
@@ -693,21 +694,21 @@ func TestWalletService_TransferFunds(t *testing.T) {
 		}
 
 		// Mock expectations
-		mockRepo.On("GetByID", uint(1)).Return(fromWallet, nil)
-		mockRepo.On("GetByID", uint(2)).Return(toWallet, nil)
-		mockRepo.On("Update", mock.MatchedBy(func(w *entity.Wallet) bool {
+		mockRepo.On("GetByID", context.Background(), uint(1)).Return(fromWallet, nil)
+		mockRepo.On("GetByID", context.Background(), uint(2)).Return(toWallet, nil)
+		mockRepo.On("Update", context.Background(), mock.MatchedBy(func(w *entity.Wallet) bool {
 			return w.ID == 1
 		})).Return(nil).Once()
-		mockRepo.On("Update", mock.MatchedBy(func(w *entity.Wallet) bool {
+		mockRepo.On("Update", context.Background(), mock.MatchedBy(func(w *entity.Wallet) bool {
 			return w.ID == 2
 		})).Return(errors.New("database error")).Once()
 		// Rollback update
-		mockRepo.On("Update", mock.MatchedBy(func(w *entity.Wallet) bool {
+		mockRepo.On("Update", context.Background(), mock.MatchedBy(func(w *entity.Wallet) bool {
 			return w.ID == 1 && w.Balance == 1000000
 		})).Return(nil).Once()
 
 		// Execute
-		result, err := service.TransferFunds(req)
+		result, err := service.TransferFunds(context.Background(), req)
 
 		// Assert
 		assert.Error(t, err)
@@ -745,7 +746,7 @@ func TestWalletService_Transfer(t *testing.T) {
 		}
 
 		// Execute
-		result, err := service.Transfer(senderID, req)
+		result, err := service.Transfer(context.Background(), senderID, req)
 
 		// Assert
 		assert.Error(t, err)
@@ -775,7 +776,7 @@ func TestWalletService_Transfer(t *testing.T) {
 		}
 
 		// Execute
-		result, err := service.Transfer(senderID, req)
+		result, err := service.Transfer(context.Background(), senderID, req)
 
 		// Assert
 		assert.Error(t, err)
@@ -813,7 +814,7 @@ func TestWalletService_Transfer(t *testing.T) {
 		}
 
 		// Execute
-		result, err := service.Transfer(senderID, req)
+		result, err := service.Transfer(context.Background(), senderID, req)
 
 		// Assert
 		assert.Error(t, err)
@@ -850,7 +851,7 @@ func TestWalletService_Transfer(t *testing.T) {
 		}
 
 		// Execute
-		result, err := service.Transfer(senderID, req)
+		result, err := service.Transfer(context.Background(), senderID, req)
 
 		// Assert
 		assert.Error(t, err)
@@ -887,7 +888,7 @@ func TestWalletService_Transfer(t *testing.T) {
 
 		mockUserService.On("GetUserByID", senderID).Return(senderUserResp, nil).Once()
 		mockUserService.On("GetUserByID", recipientID).Return(recipientUserResp, nil).Once()
-		mockRepo.On("GetByUserID", senderID).Return(nil, gorm.ErrRecordNotFound).Once()
+		mockRepo.On("GetByUserID", context.Background(), senderID).Return(nil, gorm.ErrRecordNotFound).Once()
 
 		req := &dto.TransferWalletRequest{
 			RecipientUserID: recipientID,
@@ -896,7 +897,7 @@ func TestWalletService_Transfer(t *testing.T) {
 		}
 
 		// Execute
-		result, err := service.Transfer(senderID, req)
+		result, err := service.Transfer(context.Background(), senderID, req)
 
 		// Assert
 		assert.Error(t, err)
@@ -942,8 +943,8 @@ func TestWalletService_Transfer(t *testing.T) {
 
 		mockUserService.On("GetUserByID", senderID).Return(senderUserResp, nil).Once()
 		mockUserService.On("GetUserByID", recipientID).Return(recipientUserResp, nil).Once()
-		mockRepo.On("GetByUserID", senderID).Return(senderWallet, nil).Once()
-		mockRepo.On("GetByUserID", recipientID).Return(nil, gorm.ErrRecordNotFound).Once()
+		mockRepo.On("GetByUserID", context.Background(), senderID).Return(senderWallet, nil).Once()
+		mockRepo.On("GetByUserID", context.Background(), recipientID).Return(nil, gorm.ErrRecordNotFound).Once()
 
 		req := &dto.TransferWalletRequest{
 			RecipientUserID: recipientID,
@@ -952,7 +953,7 @@ func TestWalletService_Transfer(t *testing.T) {
 		}
 
 		// Execute
-		result, err := service.Transfer(senderID, req)
+		result, err := service.Transfer(context.Background(), senderID, req)
 
 		// Assert
 		assert.Error(t, err)
@@ -1006,8 +1007,8 @@ func TestWalletService_Transfer(t *testing.T) {
 
 		mockUserService.On("GetUserByID", senderID).Return(senderUserResp, nil).Once()
 		mockUserService.On("GetUserByID", recipientID).Return(recipientUserResp, nil).Once()
-		mockRepo.On("GetByUserID", senderID).Return(senderWallet, nil).Once()
-		mockRepo.On("GetByUserID", recipientID).Return(recipientWallet, nil).Once()
+		mockRepo.On("GetByUserID", context.Background(), senderID).Return(senderWallet, nil).Once()
+		mockRepo.On("GetByUserID", context.Background(), recipientID).Return(recipientWallet, nil).Once()
 
 		req := &dto.TransferWalletRequest{
 			RecipientUserID: recipientID,
@@ -1016,7 +1017,7 @@ func TestWalletService_Transfer(t *testing.T) {
 		}
 
 		// Execute
-		result, err := service.Transfer(senderID, req)
+		result, err := service.Transfer(context.Background(), senderID, req)
 
 		// Assert
 		assert.Error(t, err)

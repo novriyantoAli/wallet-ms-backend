@@ -21,29 +21,29 @@ type MockUserRepository struct {
 	mock.Mock
 }
 
-func (m *MockUserRepository) Create(user *userEntity.User) error {
-	args := m.Called(user)
+func (m *MockUserRepository) Create(ctx context.Context, user *userEntity.User) error {
+	args := m.Called(ctx, user)
 	return args.Error(0)
 }
 
-func (m *MockUserRepository) GetByID(id uint) (*userEntity.User, error) {
-	args := m.Called(id)
+func (m *MockUserRepository) GetByID(ctx context.Context, id uint) (*userEntity.User, error) {
+	args := m.Called(ctx, id)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*userEntity.User), args.Error(1)
 }
 
-func (m *MockUserRepository) GetByEmail(email string) (*userEntity.User, error) {
-	args := m.Called(email)
+func (m *MockUserRepository) GetByEmail(ctx context.Context, email string) (*userEntity.User, error) {
+	args := m.Called(ctx, email)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*userEntity.User), args.Error(1)
 }
 
-func (m *MockUserRepository) GetAll(filter *userDto.UserFilter) ([]userEntity.User, int64, error) {
-	args := m.Called(filter)
+func (m *MockUserRepository) GetAll(ctx context.Context, filter *userDto.UserFilter) ([]userEntity.User, int64, error) {
+	args := m.Called(ctx, filter)
 	var users []userEntity.User
 	if args.Get(0) != nil {
 		users = args.Get(0).([]userEntity.User)
@@ -56,18 +56,18 @@ func (m *MockUserRepository) GetAll(filter *userDto.UserFilter) ([]userEntity.Us
 	return users, count, args.Error(2)
 }
 
-func (m *MockUserRepository) Update(user *userEntity.User) error {
-	args := m.Called(user)
+func (m *MockUserRepository) Update(ctx context.Context, user *userEntity.User) error {
+	args := m.Called(ctx, user)
 	return args.Error(0)
 }
 
-func (m *MockUserRepository) Delete(id uint) error {
-	args := m.Called(id)
+func (m *MockUserRepository) Delete(ctx context.Context, id uint) error {
+	args := m.Called(ctx, id)
 	return args.Error(0)
 }
 
-func (m *MockUserRepository) EmailExists(email string) (bool, error) {
-	args := m.Called(email)
+func (m *MockUserRepository) EmailExists(ctx context.Context, email string) (bool, error) {
+	args := m.Called(ctx, email)
 	return args.Bool(0), args.Error(1)
 }
 
@@ -211,68 +211,68 @@ type MockWalletRepository struct {
 	mock.Mock
 }
 
-func (m *MockWalletRepository) Create(wallet *walletEntity.Wallet) error {
-	args := m.Called(wallet)
+func (m *MockWalletRepository) Create(ctx context.Context, wallet *walletEntity.Wallet) error {
+	args := m.Called(ctx, wallet)
 	return args.Error(0)
 }
 
-func (m *MockWalletRepository) GetByID(id uint) (*walletEntity.Wallet, error) {
-	args := m.Called(id)
+func (m *MockWalletRepository) GetByID(ctx context.Context, id uint) (*walletEntity.Wallet, error) {
+	args := m.Called(ctx, id)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*walletEntity.Wallet), args.Error(1)
 }
 
-func (m *MockWalletRepository) GetByUserID(userID uint) (*walletEntity.Wallet, error) {
-	args := m.Called(userID)
+func (m *MockWalletRepository) GetByUserID(ctx context.Context, userID uint) (*walletEntity.Wallet, error) {
+	args := m.Called(ctx, userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*walletEntity.Wallet), args.Error(1)
 }
 
-func (m *MockWalletRepository) GetAll(filter *walletDto.WalletFilter) ([]walletEntity.Wallet, int64, error) {
-	args := m.Called(filter)
+func (m *MockWalletRepository) GetAll(ctx context.Context, filter *walletDto.WalletFilter) ([]walletEntity.Wallet, int64, error) {
+	args := m.Called(ctx, filter)
 	if args.Get(0) == nil {
 		return nil, 0, args.Error(2)
 	}
 	return args.Get(0).([]walletEntity.Wallet), args.Get(1).(int64), args.Error(2)
 }
 
-func (m *MockWalletRepository) Update(wallet *walletEntity.Wallet) error {
-	args := m.Called(wallet)
+func (m *MockWalletRepository) Update(ctx context.Context, wallet *walletEntity.Wallet) error {
+	args := m.Called(ctx, wallet)
 	return args.Error(0)
 }
 
-func (m *MockWalletRepository) Delete(id uint) error {
-	args := m.Called(id)
+func (m *MockWalletRepository) Delete(ctx context.Context, id uint) error {
+	args := m.Called(ctx, id)
 	return args.Error(0)
 }
 
-func (m *MockWalletRepository) UpdateBalance(id uint, amount float64) error {
-	args := m.Called(id, amount)
+func (m *MockWalletRepository) UpdateBalance(ctx context.Context, id uint, amount float64) error {
+	args := m.Called(ctx, id, amount)
 	return args.Error(0)
 }
 
-func (m *MockWalletRepository) GetByIDWithUser(id uint) (*walletRepository.WalletWithUserData, error) {
-	args := m.Called(id)
+func (m *MockWalletRepository) GetByIDWithUser(ctx context.Context, id uint) (*walletRepository.WalletWithUserData, error) {
+	args := m.Called(ctx, id)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*walletRepository.WalletWithUserData), args.Error(1)
 }
 
-func (m *MockWalletRepository) GetByUserIDWithUser(userID uint) (*walletRepository.WalletWithUserData, error) {
-	args := m.Called(userID)
+func (m *MockWalletRepository) GetByUserIDWithUser(ctx context.Context, userID uint) (*walletRepository.WalletWithUserData, error) {
+	args := m.Called(ctx, userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*walletRepository.WalletWithUserData), args.Error(1)
 }
 
-func (m *MockWalletRepository) GetAllWithUser(filter *walletDto.WalletFilter) ([]walletRepository.WalletWithUserData, int64, error) {
-	args := m.Called(filter)
+func (m *MockWalletRepository) GetAllWithUser(ctx context.Context, filter *walletDto.WalletFilter) ([]walletRepository.WalletWithUserData, int64, error) {
+	args := m.Called(ctx, filter)
 	if args.Get(0) == nil {
 		return nil, 0, args.Error(2)
 	}
@@ -330,21 +330,21 @@ type MockTransactionRepository struct {
 	mock.Mock
 }
 
-func (m *MockTransactionRepository) Create(transaction *walletEntity.WalletTransaction) error {
-	args := m.Called(transaction)
+func (m *MockTransactionRepository) Create(ctx context.Context, transaction *walletEntity.WalletTransaction) error {
+	args := m.Called(ctx, transaction)
 	return args.Error(0)
 }
 
-func (m *MockTransactionRepository) GetByID(id uint) (*walletEntity.WalletTransaction, error) {
-	args := m.Called(id)
+func (m *MockTransactionRepository) GetByID(ctx context.Context, id uint) (*walletEntity.WalletTransaction, error) {
+	args := m.Called(ctx, id)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*walletEntity.WalletTransaction), args.Error(1)
 }
 
-func (m *MockTransactionRepository) GetByWalletID(filter *walletDto.TransactionFilter) ([]walletEntity.WalletTransaction, int64, error) {
-	args := m.Called(filter)
+func (m *MockTransactionRepository) GetByWalletID(ctx context.Context, filter *walletDto.TransactionFilter) ([]walletEntity.WalletTransaction, int64, error) {
+	args := m.Called(ctx, filter)
 	var transactions []walletEntity.WalletTransaction
 	if args.Get(0) != nil {
 		transactions = args.Get(0).([]walletEntity.WalletTransaction)
@@ -356,18 +356,18 @@ func (m *MockTransactionRepository) GetByWalletID(filter *walletDto.TransactionF
 	return transactions, count, args.Error(2)
 }
 
-func (m *MockTransactionRepository) Update(transaction *walletEntity.WalletTransaction) error {
-	args := m.Called(transaction)
+func (m *MockTransactionRepository) Update(ctx context.Context, transaction *walletEntity.WalletTransaction) error {
+	args := m.Called(ctx, transaction)
 	return args.Error(0)
 }
 
-func (m *MockTransactionRepository) Delete(id uint) error {
-	args := m.Called(id)
+func (m *MockTransactionRepository) Delete(ctx context.Context, id uint) error {
+	args := m.Called(ctx, id)
 	return args.Error(0)
 }
 
-func (m *MockTransactionRepository) GetByReferenceID(referenceID string) (*walletEntity.WalletTransaction, error) {
-	args := m.Called(referenceID)
+func (m *MockTransactionRepository) GetByReferenceID(ctx context.Context, referenceID string) (*walletEntity.WalletTransaction, error) {
+	args := m.Called(ctx, referenceID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -379,85 +379,85 @@ type MockWalletService struct {
 	mock.Mock
 }
 
-func (m *MockWalletService) CreateWallet(req *walletDto.CreateWalletRequest) (*walletDto.WalletResponse, error) {
-	args := m.Called(req)
+func (m *MockWalletService) CreateWallet(ctx context.Context, req *walletDto.CreateWalletRequest) (*walletDto.WalletResponse, error) {
+	args := m.Called(ctx, req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*walletDto.WalletResponse), args.Error(1)
 }
 
-func (m *MockWalletService) GetWalletByID(id uint) (*walletDto.WalletResponse, error) {
-	args := m.Called(id)
+func (m *MockWalletService) GetWalletByID(ctx context.Context, id uint) (*walletDto.WalletResponse, error) {
+	args := m.Called(ctx, id)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*walletDto.WalletResponse), args.Error(1)
 }
 
-func (m *MockWalletService) GetWalletByUserID(userID uint) (*walletDto.WalletResponse, error) {
-	args := m.Called(userID)
+func (m *MockWalletService) GetWalletByUserID(ctx context.Context, userID uint) (*walletDto.WalletResponse, error) {
+	args := m.Called(ctx, userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*walletDto.WalletResponse), args.Error(1)
 }
 
-func (m *MockWalletService) GetWallets(filter *walletDto.WalletFilter) (*walletDto.WalletListResponse, error) {
-	args := m.Called(filter)
+func (m *MockWalletService) GetWallets(ctx context.Context, filter *walletDto.WalletFilter) (*walletDto.WalletListResponse, error) {
+	args := m.Called(ctx, filter)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*walletDto.WalletListResponse), args.Error(1)
 }
 
-func (m *MockWalletService) UpdateWalletBalance(walletID uint, req *walletDto.UpdateWalletBalanceRequest) (*walletDto.WalletBalanceResponse, error) {
-	args := m.Called(walletID, req)
+func (m *MockWalletService) UpdateWalletBalance(ctx context.Context, walletID uint, req *walletDto.UpdateWalletBalanceRequest) (*walletDto.WalletBalanceResponse, error) {
+	args := m.Called(ctx, walletID, req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*walletDto.WalletBalanceResponse), args.Error(1)
 }
 
-func (m *MockWalletService) DeleteWallet(id uint) error {
-	args := m.Called(id)
+func (m *MockWalletService) DeleteWallet(ctx context.Context, id uint) error {
+	args := m.Called(ctx, id)
 	return args.Error(0)
 }
 
-func (m *MockWalletService) TransferFunds(req *walletDto.TransferRequest) (*walletDto.TransferResponse, error) {
-	args := m.Called(req)
+func (m *MockWalletService) TransferFunds(ctx context.Context, req *walletDto.TransferRequest) (*walletDto.TransferResponse, error) {
+	args := m.Called(ctx, req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*walletDto.TransferResponse), args.Error(1)
 }
 
-func (m *MockWalletService) CreateTransaction(req *walletDto.CreateTransactionRequest) (*walletDto.TransactionResponse, error) {
-	args := m.Called(req)
+func (m *MockWalletService) CreateTransaction(ctx context.Context, req *walletDto.CreateTransactionRequest) (*walletDto.TransactionResponse, error) {
+	args := m.Called(ctx, req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*walletDto.TransactionResponse), args.Error(1)
 }
 
-func (m *MockWalletService) Transfer(senderID uint, req *walletDto.TransferWalletRequest) (*walletDto.TransferResponse, error) {
-	args := m.Called(senderID, req)
+func (m *MockWalletService) Transfer(ctx context.Context, senderID uint, req *walletDto.TransferWalletRequest) (*walletDto.TransferResponse, error) {
+	args := m.Called(ctx, senderID, req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*walletDto.TransferResponse), args.Error(1)
 }
 
-func (m *MockWalletService) GetTransactions(filter *walletDto.TransactionFilter) (*walletDto.TransactionListResponse, error) {
-	args := m.Called(filter)
+func (m *MockWalletService) GetTransactions(ctx context.Context, filter *walletDto.TransactionFilter) (*walletDto.TransactionListResponse, error) {
+	args := m.Called(ctx, filter)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*walletDto.TransactionListResponse), args.Error(1)
 }
 
-func (m *MockWalletService) GetTransactionByID(id uint) (*walletDto.TransactionResponse, error) {
-	args := m.Called(id)
+func (m *MockWalletService) GetTransactionByID(ctx context.Context, id uint) (*walletDto.TransactionResponse, error) {
+	args := m.Called(ctx, id)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

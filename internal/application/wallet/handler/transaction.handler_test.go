@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -42,7 +43,9 @@ func TestWalletHandler_CreateTransaction(t *testing.T) {
 			CreatedAt:    time.Now(),
 		}
 
-		mockService.On("CreateTransaction", &req).Return(resp, nil)
+		mockService.On("CreateTransaction", mock.MatchedBy(func(ctx context.Context) bool {
+			return ctx != nil
+		}), &req).Return(resp, nil)
 
 		w := httptest.NewRecorder()
 		ctx, _ := gin.CreateTestContext(w)
@@ -91,7 +94,9 @@ func TestWalletHandler_CreateTransaction(t *testing.T) {
 			Description: "Test deposit",
 		}
 
-		mockService.On("CreateTransaction", &req).Return(nil, errors.New("wallet not found"))
+		mockService.On("CreateTransaction", mock.MatchedBy(func(ctx context.Context) bool {
+			return ctx != nil
+		}), &req).Return(nil, errors.New("wallet not found"))
 
 		w := httptest.NewRecorder()
 		ctx, _ := gin.CreateTestContext(w)
@@ -131,7 +136,9 @@ func TestWalletHandler_GetTransactions(t *testing.T) {
 			PageSize:   10,
 		}
 
-		mockService.On("GetTransactions", mock.MatchedBy(func(f *dto.TransactionFilter) bool {
+		mockService.On("GetTransactions", mock.MatchedBy(func(ctx context.Context) bool {
+			return ctx != nil
+		}), mock.MatchedBy(func(f *dto.TransactionFilter) bool {
 			return f.WalletID == 1
 		})).Return(resp, nil)
 
@@ -172,12 +179,6 @@ func TestWalletHandler_GetTransactions(t *testing.T) {
 		logger := testutil.NewSilentLogger()
 		handler := NewWalletHandler(mockService, mockUserService, logger)
 
-		filter := &dto.TransactionFilter{
-			WalletID: 1,
-			Page:     1,
-			PageSize: 10,
-		}
-
 		resp := &dto.TransactionListResponse{
 			Data:       []dto.TransactionResponse{},
 			TotalCount: 0,
@@ -185,7 +186,11 @@ func TestWalletHandler_GetTransactions(t *testing.T) {
 			PageSize:   10,
 		}
 
-		mockService.On("GetTransactions", filter).Return(resp, nil)
+		mockService.On("GetTransactions", mock.MatchedBy(func(ctx context.Context) bool {
+			return ctx != nil
+		}), mock.MatchedBy(func(f *dto.TransactionFilter) bool {
+			return f.WalletID == 1 && f.Page == 1 && f.PageSize == 10
+		})).Return(resp, nil)
 
 		w := httptest.NewRecorder()
 		ctx, _ := gin.CreateTestContext(w)
@@ -217,7 +222,9 @@ func TestWalletHandler_GetTransaction(t *testing.T) {
 			CreatedAt:    time.Now(),
 		}
 
-		mockService.On("GetTransactionByID", uint(1)).Return(resp, nil)
+		mockService.On("GetTransactionByID", mock.MatchedBy(func(ctx context.Context) bool {
+			return ctx != nil
+		}), uint(1)).Return(resp, nil)
 
 		w := httptest.NewRecorder()
 		ctx, _ := gin.CreateTestContext(w)
@@ -239,7 +246,9 @@ func TestWalletHandler_GetTransaction(t *testing.T) {
 		logger := testutil.NewSilentLogger()
 		handler := NewWalletHandler(mockService, mockUserService, logger)
 
-		mockService.On("GetTransactionByID", uint(999)).Return(nil, errors.New("transaction not found"))
+		mockService.On("GetTransactionByID", mock.MatchedBy(func(ctx context.Context) bool {
+			return ctx != nil
+		}), uint(999)).Return(nil, errors.New("transaction not found"))
 
 		w := httptest.NewRecorder()
 		ctx, _ := gin.CreateTestContext(w)

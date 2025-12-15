@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package auth;
+
+option go_package = "vibe-ddd-golang/api/proto/auth";
+
+// Auth service definition
+service AuthService {
+  // Create authentication credentials with radcheck and radreply entries
+  rpc CreateAuth(CreateAuthRequest) returns (CreateAuthResponse);
+}
+
+// CreateAuthAttribute represents an attribute to be created
+message CreateAuthAttribute {
+  string attribute = 1;
+  string value = 2;
+  string op = 3; // Default: ":=" for radcheck, "+=" for radreply
+}
+
+// AuthCreateAttrResponse represents created attribute information
+message AuthCreateAttrResponse {
+  uint32 id = 1;
+  string attribute = 2;
+  string value = 3;
+  string op = 4;
+}
+
+// Create authentication credentials request
+message CreateAuthRequest {
+  string username = 1;
+  string password = 2;
+  repeated CreateAuthAttribute attributes = 3;
+  repeated CreateAuthAttribute reply_attributes = 4;
+}
+
+// Create authentication credentials response
+message CreateAuthResponse {
+  string username = 1;
+  string password = 2;
+  repeated AuthCreateAttrResponse attributes = 3;
+  repeated AuthCreateAttrResponse reply_attributes = 4;
+}

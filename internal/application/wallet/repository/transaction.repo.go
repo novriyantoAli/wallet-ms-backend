@@ -1,8 +1,11 @@
 package repository
 
 import (
+	"context"
+
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/wallet/dto"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/wallet/entity"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/database"
 
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -10,12 +13,12 @@ import (
 
 // TransactionRepository defines the interface for wallet transaction data access
 type TransactionRepository interface {
-	Create(transaction *entity.WalletTransaction) error
-	GetByID(id uint) (*entity.WalletTransaction, error)
-	GetByWalletID(filter *dto.TransactionFilter) ([]entity.WalletTransaction, int64, error)
-	Update(transaction *entity.WalletTransaction) error
-	Delete(id uint) error
-	GetByReferenceID(referenceID string) (*entity.WalletTransaction, error)
+	Create(ctx context.Context, transaction *entity.WalletTransaction) error
+	GetByID(ctx context.Context, id uint) (*entity.WalletTransaction, error)
+	GetByWalletID(ctx context.Context, filter *dto.TransactionFilter) ([]entity.WalletTransaction, int64, error)
+	Update(ctx context.Context, transaction *entity.WalletTransaction) error
+	Delete(ctx context.Context, id uint) error
+	GetByReferenceID(ctx context.Context, referenceID string) (*entity.WalletTransaction, error)
 }
 
 type transactionRepository struct {
@@ -31,16 +34,18 @@ func NewTransactionRepository(db *gorm.DB, logger *zap.Logger) TransactionReposi
 	}
 }
 
-func (r *transactionRepository) Create(transaction *entity.WalletTransaction) error {
+func (r *transactionRepository) Create(ctx context.Context, transaction *entity.WalletTransaction) error {
 	r.logger.Info("Creating wallet transaction",
 		zap.Uint("wallet_id", transaction.WalletID),
 		zap.String("type", string(transaction.Type)))
-	return r.db.Create(transaction).Error
+	db := database.GetDB(ctx, r.db)
+	return db.Create(transaction).Error
 }
 
-func (r *transactionRepository) GetByID(id uint) (*entity.WalletTransaction, error) {
+func (r *transactionRepository) GetByID(ctx context.Context, id uint) (*entity.WalletTransaction, error) {
 	var transaction entity.WalletTransaction
-	err := r.db.Where("id = ?", id).First(&transaction).Error
+	db := database.GetDB(ctx, r.db)
+	err := db.Where("id = ?", id).First(&transaction).Error
 	if err != nil {
 		r.logger.Error("Failed to get transaction by ID", zap.Uint("id", id), zap.Error(err))
 		return nil, err
@@ -48,11 +53,12 @@ func (r *transactionRepository) GetByID(id uint) (*entity.WalletTransaction, err
 	return &transaction, nil
 }
 
-func (r *transactionRepository) GetByWalletID(filter *dto.TransactionFilter) ([]entity.WalletTransaction, int64, error) {
+func (r *transactionRepository) GetByWalletID(ctx context.Context, filter *dto.TransactionFilter) ([]entity.WalletTransaction, int64, error) {
 	var transactions []entity.WalletTransaction
 	var totalCount int64
 
-	query := r.db.Where("wallet_id = ?", filter.WalletID)
+	db := database.GetDB(ctx, r.db)
+	query := db.Where("wallet_id = ?", filter.WalletID)
 
 	// Apply optional filters
 	if filter.Type != "" {
@@ -92,19 +98,22 @@ func (r *transactionRepository) GetByWalletID(filter *dto.TransactionFilter) ([]
 	return transactions, totalCount, nil
 }
 
-func (r *transactionRepository) Update(transaction *entity.WalletTransaction) error {
+func (r *transactionRepository) Update(ctx context.Context, transaction *entity.WalletTransaction) error {
 	r.logger.Info("Updating wallet transaction", zap.Uint("id", transaction.ID))
-	return r.db.Save(transaction).Error
+	db := database.GetDB(ctx, r.db)
+	return db.Save(transaction).Error
 }
 
-func (r *transactionRepository) Delete(id uint) error {
+func (r *transactionRepository) Delete(ctx context.Context, id uint) error {
 	r.logger.Info("Deleting wallet transaction", zap.Uint("id", id))
-	return r.db.Delete(&entity.WalletTransaction{}, id).Error
+	db := database.GetDB(ctx, r.db)
+	return db.Delete(&entity.WalletTransaction{}, id).Error
 }
 
-func (r *transactionRepository) GetByReferenceID(referenceID string) (*entity.WalletTransaction, error) {
+func (r *transactionRepository) GetByReferenceID(ctx context.Context, referenceID string) (*entity.WalletTransaction, error) {
 	var transaction entity.WalletTransaction
-	err := r.db.Where("reference_id = ?", referenceID).First(&transaction).Error
+	db := database.GetDB(ctx, r.db)
+	err := db.Where("reference_id = ?", referenceID).First(&transaction).Error
 	if err != nil {
 		r.logger.Error("Failed to get transaction by reference ID",
 			zap.String("reference_id", referenceID),

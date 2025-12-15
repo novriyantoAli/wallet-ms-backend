@@ -48,7 +48,8 @@ func NewUserService(repo repository.UserRepository, walletRepo walletrepo.Wallet
 }
 
 func (s *userService) Register(req *dto.RegisterRequest) (*dto.UserResponse, error) {
-	exists, err := s.repo.EmailExists(req.Email)
+	ctx := context.Background()
+	exists, err := s.repo.EmailExists(ctx, req.Email)
 	if err != nil {
 		s.logger.Error("Failed to check email existence", zap.Error(err))
 		return nil, err
@@ -78,7 +79,7 @@ func (s *userService) Register(req *dto.RegisterRequest) (*dto.UserResponse, err
 		user.Level = entity.UserLevelUser
 	}
 
-	err = s.repo.Create(user)
+	err = s.repo.Create(ctx, user)
 	if err != nil {
 		s.logger.Error("Failed to register user", zap.Error(err))
 		return nil, err
@@ -96,7 +97,8 @@ func (s *userService) Register(req *dto.RegisterRequest) (*dto.UserResponse, err
 }
 
 func (s *userService) Login(req *dto.LoginRequest) (*dto.LoginResponse, error) {
-	user, err := s.repo.GetByEmail(req.Email)
+	ctx := context.Background()
+	user, err := s.repo.GetByEmail(ctx, req.Email)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			s.logger.Warn("Login attempt with non-existent email", zap.String("email", req.Email))
@@ -130,6 +132,7 @@ func (s *userService) Login(req *dto.LoginRequest) (*dto.LoginResponse, error) {
 }
 
 func (s *userService) GetCurrentUser(token string) (*dto.UserResponse, error) {
+	ctx := context.Background()
 	// Verify and extract claims from JWT token
 	claims, err := s.jwtManager.VerifyToken(token)
 	if err != nil {
@@ -138,7 +141,7 @@ func (s *userService) GetCurrentUser(token string) (*dto.UserResponse, error) {
 	}
 
 	// Retrieve user by ID from claims
-	user, err := s.repo.GetByID(claims.UserID)
+	user, err := s.repo.GetByID(ctx, claims.UserID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			s.logger.Warn("User not found for token", zap.Uint("user_id", claims.UserID))
@@ -154,7 +157,8 @@ func (s *userService) GetCurrentUser(token string) (*dto.UserResponse, error) {
 }
 
 func (s *userService) CreateUser(req *dto.CreateUserRequest) (*dto.UserResponse, error) {
-	exists, err := s.repo.EmailExists(req.Email)
+	ctx := context.Background()
+	exists, err := s.repo.EmailExists(ctx, req.Email)
 	if err != nil {
 		s.logger.Error("Failed to check email existence", zap.Error(err))
 		return nil, err
@@ -178,7 +182,7 @@ func (s *userService) CreateUser(req *dto.CreateUserRequest) (*dto.UserResponse,
 		UpdatedAt: time.Now(),
 	}
 
-	err = s.repo.Create(user)
+	err = s.repo.Create(ctx, user)
 	if err != nil {
 		s.logger.Error("Failed to create user", zap.Error(err))
 		return nil, err
@@ -194,7 +198,8 @@ func (s *userService) CreateUser(req *dto.CreateUserRequest) (*dto.UserResponse,
 }
 
 func (s *userService) GetUserByID(id uint) (*dto.UserResponse, error) {
-	user, err := s.repo.GetByID(id)
+	ctx := context.Background()
+	user, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("user not found")
@@ -206,7 +211,8 @@ func (s *userService) GetUserByID(id uint) (*dto.UserResponse, error) {
 }
 
 func (s *userService) GetUserByEmail(email string) (*dto.UserResponse, error) {
-	user, err := s.repo.GetByEmail(email)
+	ctx := context.Background()
+	user, err := s.repo.GetByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("user not found")
@@ -218,6 +224,7 @@ func (s *userService) GetUserByEmail(email string) (*dto.UserResponse, error) {
 }
 
 func (s *userService) GetUsers(filter *dto.UserFilter) (*dto.UserListResponse, error) {
+	ctx := context.Background()
 	if filter.Page <= 0 {
 		filter.Page = 1
 	}
@@ -225,7 +232,7 @@ func (s *userService) GetUsers(filter *dto.UserFilter) (*dto.UserListResponse, e
 		filter.PageSize = 10
 	}
 
-	users, totalCount, err := s.repo.GetAll(filter)
+	users, totalCount, err := s.repo.GetAll(ctx, filter)
 	if err != nil {
 		return nil, err
 	}
@@ -244,7 +251,8 @@ func (s *userService) GetUsers(filter *dto.UserFilter) (*dto.UserListResponse, e
 }
 
 func (s *userService) UpdateUser(id uint, req *dto.UpdateUserRequest) (*dto.UserResponse, error) {
-	user, err := s.repo.GetByID(id)
+	ctx := context.Background()
+	user, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("user not found")
@@ -258,7 +266,7 @@ func (s *userService) UpdateUser(id uint, req *dto.UpdateUserRequest) (*dto.User
 	}
 	user.UpdatedAt = time.Now()
 
-	err = s.repo.Update(user)
+	err = s.repo.Update(ctx, user)
 	if err != nil {
 		s.logger.Error("Failed to update user", zap.Error(err))
 		return nil, err
@@ -268,7 +276,8 @@ func (s *userService) UpdateUser(id uint, req *dto.UpdateUserRequest) (*dto.User
 }
 
 func (s *userService) UpdateUserPassword(id uint, req *dto.UpdateUserPasswordRequest) error {
-	user, err := s.repo.GetByID(id)
+	ctx := context.Background()
+	user, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errors.New("user not found")
@@ -290,11 +299,12 @@ func (s *userService) UpdateUserPassword(id uint, req *dto.UpdateUserPasswordReq
 	user.Password = string(hashedPassword)
 	user.UpdatedAt = time.Now()
 
-	return s.repo.Update(user)
+	return s.repo.Update(ctx, user)
 }
 
 func (s *userService) DeleteUser(id uint) error {
-	_, err := s.repo.GetByID(id)
+	ctx := context.Background()
+	_, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errors.New("user not found")
@@ -303,15 +313,15 @@ func (s *userService) DeleteUser(id uint) error {
 	}
 
 	// Delete user's wallet if exists
-	wallet, err := s.walletRepo.GetByUserID(id)
+	wallet, err := s.walletRepo.GetByUserID(context.Background(), id)
 	if err == nil && wallet != nil {
-		if err := s.walletRepo.Delete(wallet.ID); err != nil {
+		if err := s.walletRepo.Delete(context.Background(), wallet.ID); err != nil {
 			s.logger.Error("Failed to delete user's wallet", zap.Uint("user_id", id), zap.Uint("wallet_id", wallet.ID), zap.Error(err))
 			// Continue with user deletion even if wallet deletion fails
 		}
 	}
 
-	return s.repo.Delete(id)
+	return s.repo.Delete(ctx, id)
 }
 
 // createWalletForUser creates a wallet for a newly registered user
@@ -325,7 +335,7 @@ func (s *userService) createWalletForUser(userID uint) error {
 		UpdatedAt: time.Now(),
 	}
 
-	if err := s.walletRepo.Create(wallet); err != nil {
+	if err := s.walletRepo.Create(context.Background(), wallet); err != nil {
 		return err
 	}
 

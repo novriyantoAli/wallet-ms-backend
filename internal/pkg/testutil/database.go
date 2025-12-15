@@ -2,6 +2,7 @@ package testutil
 
 import (
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/payment/entity"
+	productEntity "github.com/novriyantoAli/wallet-ms-backend/internal/application/product/entity"
 	userEntity "github.com/novriyantoAli/wallet-ms-backend/internal/application/user/entity"
 	walletEntity "github.com/novriyantoAli/wallet-ms-backend/internal/application/wallet/entity"
 
@@ -23,6 +24,8 @@ func SetupTestDB() (*gorm.DB, error) {
 	err = db.AutoMigrate(
 		&userEntity.User{},
 		&entity.Payment{},
+		&productEntity.Product{},
+		&productEntity.WiFiProduct{},
 		&walletEntity.Wallet{},
 		&walletEntity.WalletTransaction{},
 	)

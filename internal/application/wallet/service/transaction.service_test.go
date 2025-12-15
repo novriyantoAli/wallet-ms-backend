@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -35,15 +36,15 @@ func TestWalletService_CreateTransaction(t *testing.T) {
 			Description: "Deposit",
 		}
 
-		mockWalletRepo.On("GetByID", uint(1)).Return(wallet, nil)
-		mockWalletRepo.On("Update", mock.AnythingOfType("*entity.Wallet")).Return(nil).Run(func(args mock.Arguments) {
-			updatedWallet := args.Get(0).(*entity.Wallet)
+		mockWalletRepo.On("GetByID", context.Background(), uint(1)).Return(wallet, nil)
+		mockWalletRepo.On("Update", context.Background(), mock.AnythingOfType("*entity.Wallet")).Return(nil).Run(func(args mock.Arguments) {
+			updatedWallet := args.Get(1).(*entity.Wallet)
 			assert.Equal(t, 150.0, updatedWallet.Balance)
 		})
-		mockTransactionRepo.On("Create", mock.AnythingOfType("*entity.WalletTransaction")).Return(nil)
+		mockTransactionRepo.On("Create", context.Background(), mock.AnythingOfType("*entity.WalletTransaction")).Return(nil)
 
 		// When
-		response, err := service.CreateTransaction(req)
+		response, err := service.CreateTransaction(context.Background(), req)
 
 		// Then
 		assert.NoError(t, err)
@@ -76,15 +77,15 @@ func TestWalletService_CreateTransaction(t *testing.T) {
 			Description: "Withdrawal",
 		}
 
-		mockWalletRepo.On("GetByID", uint(1)).Return(wallet, nil)
-		mockWalletRepo.On("Update", mock.AnythingOfType("*entity.Wallet")).Return(nil).Run(func(args mock.Arguments) {
-			updatedWallet := args.Get(0).(*entity.Wallet)
+		mockWalletRepo.On("GetByID", context.Background(), uint(1)).Return(wallet, nil)
+		mockWalletRepo.On("Update", context.Background(), mock.AnythingOfType("*entity.Wallet")).Return(nil).Run(func(args mock.Arguments) {
+			updatedWallet := args.Get(1).(*entity.Wallet)
 			assert.Equal(t, 150.0, updatedWallet.Balance)
 		})
-		mockTransactionRepo.On("Create", mock.AnythingOfType("*entity.WalletTransaction")).Return(nil)
+		mockTransactionRepo.On("Create", context.Background(), mock.AnythingOfType("*entity.WalletTransaction")).Return(nil)
 
 		// When
-		response, err := service.CreateTransaction(req)
+		response, err := service.CreateTransaction(context.Background(), req)
 
 		// Then
 		assert.NoError(t, err)
@@ -114,10 +115,10 @@ func TestWalletService_CreateTransaction(t *testing.T) {
 			Description: "Withdrawal",
 		}
 
-		mockWalletRepo.On("GetByID", uint(1)).Return(wallet, nil)
+		mockWalletRepo.On("GetByID", context.Background(), uint(1)).Return(wallet, nil)
 
 		// When
-		response, err := service.CreateTransaction(req)
+		response, err := service.CreateTransaction(context.Background(), req)
 
 		// Then
 		assert.Error(t, err)
@@ -141,7 +142,7 @@ func TestWalletService_CreateTransaction(t *testing.T) {
 		}
 
 		// When
-		response, err := service.CreateTransaction(req)
+		response, err := service.CreateTransaction(context.Background(), req)
 
 		// Then
 		assert.Error(t, err)
@@ -163,10 +164,10 @@ func TestWalletService_CreateTransaction(t *testing.T) {
 			Description: "Deposit",
 		}
 
-		mockWalletRepo.On("GetByID", uint(999)).Return(nil, gorm.ErrRecordNotFound)
+		mockWalletRepo.On("GetByID", context.Background(), uint(999)).Return(nil, gorm.ErrRecordNotFound)
 
 		// When
-		response, err := service.CreateTransaction(req)
+		response, err := service.CreateTransaction(context.Background(), req)
 
 		// Then
 		assert.Error(t, err)
@@ -206,10 +207,10 @@ func TestWalletService_GetTransactions(t *testing.T) {
 			PageSize: 10,
 		}
 
-		mockTransactionRepo.On("GetByWalletID", filter).Return(transactions, int64(2), nil)
+		mockTransactionRepo.On("GetByWalletID", context.Background(), filter).Return(transactions, int64(2), nil)
 
 		// When
-		response, err := service.GetTransactions(filter)
+		response, err := service.GetTransactions(context.Background(), filter)
 
 		// Then
 		assert.NoError(t, err)
@@ -232,10 +233,10 @@ func TestWalletService_GetTransactions(t *testing.T) {
 			PageSize: 10,
 		}
 
-		mockTransactionRepo.On("GetByWalletID", filter).Return([]entity.WalletTransaction{}, int64(0), nil)
+		mockTransactionRepo.On("GetByWalletID", context.Background(), filter).Return([]entity.WalletTransaction{}, int64(0), nil)
 
 		// When
-		response, err := service.GetTransactions(filter)
+		response, err := service.GetTransactions(context.Background(), filter)
 
 		// Then
 		assert.NoError(t, err)
@@ -257,10 +258,10 @@ func TestWalletService_GetTransactions(t *testing.T) {
 			PageSize: 10,
 		}
 
-		mockTransactionRepo.On("GetByWalletID", filter).Return(nil, int64(0), errors.New("database error"))
+		mockTransactionRepo.On("GetByWalletID", context.Background(), filter).Return(nil, int64(0), errors.New("database error"))
 
 		// When
-		response, err := service.GetTransactions(filter)
+		response, err := service.GetTransactions(context.Background(), filter)
 
 		// Then
 		assert.Error(t, err)
@@ -286,10 +287,10 @@ func TestWalletService_GetTransactionByID(t *testing.T) {
 			CreatedAt:    time.Now(),
 		}
 
-		mockTransactionRepo.On("GetByID", uint(1)).Return(transaction, nil)
+		mockTransactionRepo.On("GetByID", context.Background(), uint(1)).Return(transaction, nil)
 
 		// When
-		response, err := service.GetTransactionByID(1)
+		response, err := service.GetTransactionByID(context.Background(), 1)
 
 		// Then
 		assert.NoError(t, err)
@@ -307,10 +308,10 @@ func TestWalletService_GetTransactionByID(t *testing.T) {
 		logger := testutil.NewSilentLogger()
 		service := NewWalletService(nil, mockWalletRepo, mockTransactionRepo, testutil.NewMockUserService(), logger)
 
-		mockTransactionRepo.On("GetByID", uint(999)).Return(nil, gorm.ErrRecordNotFound)
+		mockTransactionRepo.On("GetByID", context.Background(), uint(999)).Return(nil, gorm.ErrRecordNotFound)
 
 		// When
-		response, err := service.GetTransactionByID(999)
+		response, err := service.GetTransactionByID(context.Background(), 999)
 
 		// Then
 		assert.Error(t, err)

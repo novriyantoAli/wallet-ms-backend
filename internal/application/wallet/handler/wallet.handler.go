@@ -43,6 +43,7 @@ func NewWalletHandler(
 // @Failure 404 {object} map[string]interface{}
 // @Router /api/v1/wallets [post]
 func (h *WalletHandler) CreateWallet(c *gin.Context) {
+	ctx := c.Request.Context()
 	var req dto.CreateWalletRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.logger.Error("Failed to bind request", zap.Error(err))
@@ -50,7 +51,7 @@ func (h *WalletHandler) CreateWallet(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.service.CreateWallet(&req)
+	resp, err := h.service.CreateWallet(ctx, &req)
 	if err != nil {
 		h.logger.Error("Failed to create wallet", zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -71,13 +72,14 @@ func (h *WalletHandler) CreateWallet(c *gin.Context) {
 // @Failure 404 {object} map[string]interface{}
 // @Router /api/v1/wallets/{id} [get]
 func (h *WalletHandler) GetWallet(c *gin.Context) {
+	ctx := c.Request.Context()
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid wallet ID"})
 		return
 	}
 
-	resp, err := h.service.GetWalletByID(uint(id))
+	resp, err := h.service.GetWalletByID(ctx, uint(id))
 	if err != nil {
 		h.logger.Error("Failed to get wallet", zap.Uint("id", uint(id)), zap.Error(err))
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
@@ -98,13 +100,14 @@ func (h *WalletHandler) GetWallet(c *gin.Context) {
 // @Failure 404 {object} map[string]interface{}
 // @Router /api/v1/users/{id}/wallet [get]
 func (h *WalletHandler) GetUserWallet(c *gin.Context) {
+	ctx := c.Request.Context()
 	userID, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
 		return
 	}
 
-	resp, err := h.service.GetWalletByUserID(uint(userID))
+	resp, err := h.service.GetWalletByUserID(ctx, uint(userID))
 	if err != nil {
 		h.logger.Error("Failed to get user wallet", zap.Uint("user_id", uint(userID)), zap.Error(err))
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
@@ -128,6 +131,7 @@ func (h *WalletHandler) GetUserWallet(c *gin.Context) {
 // @Failure 400 {object} map[string]interface{}
 // @Router /api/v1/wallets [get]
 func (h *WalletHandler) ListWallets(c *gin.Context) {
+	ctx := c.Request.Context()
 	filter := &dto.WalletFilter{}
 
 	if page := c.Query("page"); page != "" {
@@ -161,7 +165,7 @@ func (h *WalletHandler) ListWallets(c *gin.Context) {
 		filter.Status = status
 	}
 
-	resp, err := h.service.GetWallets(filter)
+	resp, err := h.service.GetWallets(ctx, filter)
 	if err != nil {
 		h.logger.Error("Failed to list wallets", zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -184,6 +188,7 @@ func (h *WalletHandler) ListWallets(c *gin.Context) {
 // @Failure 404 {object} map[string]interface{}
 // @Router /api/v1/wallets/{id}/balance [post]
 func (h *WalletHandler) UpdateWalletBalance(c *gin.Context) {
+	ctx := c.Request.Context()
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid wallet ID"})
@@ -197,7 +202,7 @@ func (h *WalletHandler) UpdateWalletBalance(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.service.UpdateWalletBalance(uint(id), &req)
+	resp, err := h.service.UpdateWalletBalance(ctx, uint(id), &req)
 	if err != nil {
 		h.logger.Error("Failed to update wallet balance", zap.Uint("id", uint(id)), zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -218,13 +223,14 @@ func (h *WalletHandler) UpdateWalletBalance(c *gin.Context) {
 // @Failure 404 {object} map[string]interface{}
 // @Router /api/v1/wallets/{id} [delete]
 func (h *WalletHandler) DeleteWallet(c *gin.Context) {
+	ctx := c.Request.Context()
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid wallet ID"})
 		return
 	}
 
-	err = h.service.DeleteWallet(uint(id))
+	err = h.service.DeleteWallet(ctx, uint(id))
 	if err != nil {
 		h.logger.Error("Failed to delete wallet", zap.Uint("id", uint(id)), zap.Error(err))
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
@@ -246,6 +252,7 @@ func (h *WalletHandler) DeleteWallet(c *gin.Context) {
 // @Failure 404 {object} map[string]interface{}
 // @Router /api/v1/wallets/transfer [post]
 func (h *WalletHandler) TransferFunds(c *gin.Context) {
+	ctx := c.Request.Context()
 	var req dto.TransferRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.logger.Error("Failed to bind request", zap.Error(err))
@@ -253,7 +260,7 @@ func (h *WalletHandler) TransferFunds(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.service.TransferFunds(&req)
+	resp, err := h.service.TransferFunds(ctx, &req)
 	if err != nil {
 		h.logger.Error("Failed to transfer funds", zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -277,6 +284,7 @@ func (h *WalletHandler) TransferFunds(c *gin.Context) {
 // @Failure 404 {object} map[string]interface{} "User or wallet not found"
 // @Router /api/v1/wallets/transfer-to-user [post]
 func (h *WalletHandler) Transfer(c *gin.Context) {
+	ctx := c.Request.Context()
 	// Extract token from Authorization header
 	authHeader := c.GetHeader("Authorization")
 	if authHeader == "" {
@@ -323,7 +331,7 @@ func (h *WalletHandler) Transfer(c *gin.Context) {
 	}
 
 	// Call the transfer service
-	resp, err := h.service.Transfer(senderID, &req)
+	resp, err := h.service.Transfer(ctx, senderID, &req)
 	if err != nil {
 		h.logger.Error("Failed to transfer funds", zap.String("error", err.Error()), zap.Uint("sender_id", senderID), zap.Uint("recipient_id", req.RecipientUserID))
 
@@ -363,6 +371,7 @@ func (h *WalletHandler) Transfer(c *gin.Context) {
 // @Failure 404 {object} map[string]interface{}
 // @Router /api/v1/wallets/transactions [post]
 func (h *WalletHandler) CreateTransaction(c *gin.Context) {
+	ctx := c.Request.Context()
 	var req dto.CreateTransactionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.logger.Error("Failed to bind request", zap.Error(err))
@@ -370,7 +379,7 @@ func (h *WalletHandler) CreateTransaction(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.service.CreateTransaction(&req)
+	resp, err := h.service.CreateTransaction(ctx, &req)
 	if err != nil {
 		h.logger.Error("Failed to create transaction", zap.Error(err))
 		if err.Error() == "wallet not found" {
@@ -399,6 +408,7 @@ func (h *WalletHandler) CreateTransaction(c *gin.Context) {
 // @Failure 400 {object} map[string]interface{}
 // @Router /api/v1/wallets/transactions [get]
 func (h *WalletHandler) GetTransactions(c *gin.Context) {
+	ctx := c.Request.Context()
 	var req dto.GetTransactionRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		h.logger.Error("Failed to bind query", zap.Error(err))
@@ -426,7 +436,7 @@ func (h *WalletHandler) GetTransactions(c *gin.Context) {
 		PageSize: req.PageSize,
 	}
 
-	resp, err := h.service.GetTransactions(filter)
+	resp, err := h.service.GetTransactions(ctx, filter)
 	if err != nil {
 		h.logger.Error("Failed to get transactions", zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -447,6 +457,7 @@ func (h *WalletHandler) GetTransactions(c *gin.Context) {
 // @Failure 404 {object} map[string]interface{}
 // @Router /api/v1/wallets/transactions/{id} [get]
 func (h *WalletHandler) GetTransaction(c *gin.Context) {
+	ctx := c.Request.Context()
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 32)
 	if err != nil {
@@ -455,7 +466,7 @@ func (h *WalletHandler) GetTransaction(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.service.GetTransactionByID(uint(id))
+	resp, err := h.service.GetTransactionByID(ctx, uint(id))
 	if err != nil {
 		h.logger.Error("Failed to get transaction", zap.Error(err))
 		if err.Error() == "transaction not found" {

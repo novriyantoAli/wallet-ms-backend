@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -26,7 +27,7 @@ func TestUserRepository_Create(t *testing.T) {
 		user.ID = 0 // Reset ID for creation
 
 		// When
-		err := repo.Create(user)
+		err := repo.Create(context.Background(), user)
 
 		// Then
 		assert.NoError(t, err)
@@ -51,8 +52,8 @@ func TestUserRepository_Create(t *testing.T) {
 		user2.Email = "duplicate@example.com"
 
 		// When
-		err1 := repo.Create(user1)
-		err2 := repo.Create(user2)
+		err1 := repo.Create(context.Background(), user1)
+		err2 := repo.Create(context.Background(), user2)
 
 		// Then
 		assert.NoError(t, err1)
@@ -74,11 +75,11 @@ func TestUserRepository_GetByID(t *testing.T) {
 		// Given
 		user := testutil.CreateUserFixture()
 		user.ID = 0
-		err := repo.Create(user)
+		err := repo.Create(context.Background(), user)
 		require.NoError(t, err)
 
 		// When
-		foundUser, err := repo.GetByID(user.ID)
+		foundUser, err := repo.GetByID(context.Background(), user.ID)
 
 		// Then
 		assert.NoError(t, err)
@@ -89,7 +90,7 @@ func TestUserRepository_GetByID(t *testing.T) {
 
 	t.Run("should return error when user not found", func(t *testing.T) {
 		// When
-		_, err := repo.GetByID(999)
+		_, err := repo.GetByID(context.Background(), 999)
 
 		// Then
 		assert.Error(t, err)
@@ -111,11 +112,11 @@ func TestUserRepository_GetByEmail(t *testing.T) {
 		// Given
 		user := testutil.CreateUserFixture()
 		user.ID = 0
-		err := repo.Create(user)
+		err := repo.Create(context.Background(), user)
 		require.NoError(t, err)
 
 		// When
-		foundUser, err := repo.GetByEmail(user.Email)
+		foundUser, err := repo.GetByEmail(context.Background(), user.Email)
 
 		// Then
 		assert.NoError(t, err)
@@ -126,7 +127,7 @@ func TestUserRepository_GetByEmail(t *testing.T) {
 
 	t.Run("should return error when user email not found", func(t *testing.T) {
 		// When
-		_, err := repo.GetByEmail("nonexistent@example.com")
+		_, err := repo.GetByEmail(context.Background(), "nonexistent@example.com")
 
 		// Then
 		assert.Error(t, err)
@@ -151,7 +152,7 @@ func TestUserRepository_GetAll(t *testing.T) {
 			user.ID = 0
 			user.Email = fmt.Sprintf("user%d@example.com", i)
 			user.Name = fmt.Sprintf("User %d", i)
-			err := repo.Create(user)
+			err := repo.Create(context.Background(), user)
 			require.NoError(t, err)
 		}
 
@@ -161,7 +162,7 @@ func TestUserRepository_GetAll(t *testing.T) {
 		}
 
 		// When
-		users, totalCount, err := repo.GetAll(filter)
+		users, totalCount, err := repo.GetAll(context.Background(), filter)
 
 		// Then
 		assert.NoError(t, err)
@@ -175,14 +176,14 @@ func TestUserRepository_GetAll(t *testing.T) {
 		user1.ID = 0
 		user1.Email = "alice@example.com"
 		user1.Name = "Alice Smith"
-		err := repo.Create(user1)
+		err := repo.Create(context.Background(), user1)
 		require.NoError(t, err)
 
 		user2 := testutil.CreateUserFixture()
 		user2.ID = 0
 		user2.Email = "bob@example.com"
 		user2.Name = "Bob Johnson"
-		err = repo.Create(user2)
+		err = repo.Create(context.Background(), user2)
 		require.NoError(t, err)
 
 		filter := &dto.UserFilter{
@@ -190,7 +191,7 @@ func TestUserRepository_GetAll(t *testing.T) {
 		}
 
 		// When
-		users, totalCount, err := repo.GetAll(filter)
+		users, totalCount, err := repo.GetAll(context.Background(), filter)
 
 		// Then
 		assert.NoError(t, err)
@@ -205,21 +206,21 @@ func TestUserRepository_GetAll(t *testing.T) {
 		userLevelUser.ID = 0
 		userLevelUser.Email = "user@example.com"
 		userLevelUser.Level = entity.UserLevelUser
-		err := repo.Create(userLevelUser)
+		err := repo.Create(context.Background(), userLevelUser)
 		require.NoError(t, err)
 
 		userLevelReseller := testutil.CreateUserFixture()
 		userLevelReseller.ID = 0
 		userLevelReseller.Email = "reseller@example.com"
 		userLevelReseller.Level = entity.UserLevelReseller
-		err = repo.Create(userLevelReseller)
+		err = repo.Create(context.Background(), userLevelReseller)
 		require.NoError(t, err)
 
 		userLevelAdmin := testutil.CreateUserFixture()
 		userLevelAdmin.ID = 0
 		userLevelAdmin.Email = "admin@example.com"
 		userLevelAdmin.Level = entity.UserLevelAdmin
-		err = repo.Create(userLevelAdmin)
+		err = repo.Create(context.Background(), userLevelAdmin)
 		require.NoError(t, err)
 
 		filter := &dto.UserFilter{
@@ -227,7 +228,7 @@ func TestUserRepository_GetAll(t *testing.T) {
 		}
 
 		// When
-		users, totalCount, err := repo.GetAll(filter)
+		users, totalCount, err := repo.GetAll(context.Background(), filter)
 
 		// Then
 		assert.NoError(t, err)
@@ -251,13 +252,13 @@ func TestUserRepository_Update(t *testing.T) {
 		// Given
 		user := testutil.CreateUserFixture()
 		user.ID = 0
-		err := repo.Create(user)
+		err := repo.Create(context.Background(), user)
 		require.NoError(t, err)
 
 		// When
 		user.Name = "Updated Name"
 		user.Email = "updated@example.com"
-		err = repo.Update(user)
+		err = repo.Update(context.Background(), user)
 
 		// Then
 		assert.NoError(t, err)
@@ -285,11 +286,11 @@ func TestUserRepository_Delete(t *testing.T) {
 		// Given
 		user := testutil.CreateUserFixture()
 		user.ID = 0
-		err := repo.Create(user)
+		err := repo.Create(context.Background(), user)
 		require.NoError(t, err)
 
 		// When
-		err = repo.Delete(user.ID)
+		err = repo.Delete(context.Background(), user.ID)
 
 		// Then
 		assert.NoError(t, err)
@@ -316,11 +317,11 @@ func TestUserRepository_EmailExists(t *testing.T) {
 		// Given
 		user := testutil.CreateUserFixture()
 		user.ID = 0
-		err := repo.Create(user)
+		err := repo.Create(context.Background(), user)
 		require.NoError(t, err)
 
 		// When
-		exists, err := repo.EmailExists(user.Email)
+		exists, err := repo.EmailExists(context.Background(), user.Email)
 
 		// Then
 		assert.NoError(t, err)
@@ -329,7 +330,7 @@ func TestUserRepository_EmailExists(t *testing.T) {
 
 	t.Run("should return false for non-existing email", func(t *testing.T) {
 		// When
-		exists, err := repo.EmailExists("nonexistent@example.com")
+		exists, err := repo.EmailExists(context.Background(), "nonexistent@example.com")
 
 		// Then
 		assert.NoError(t, err)

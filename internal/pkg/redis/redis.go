@@ -4,21 +4,15 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/novriyantoAli/wallet-ms-backend/internal/config"
 	"github.com/redis/go-redis/v9"
 )
 
-type RedisConfig struct {
-	Host     string
-	Port     int
-	Password string
-	DB       int
-}
-
-func NewRedisClient(config RedisConfig) *redis.Client {
+func NewRedisClient(cfg *config.Config) *redis.Client {
 	client := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%d", config.Host, config.Port),
-		Password: config.Password,
-		DB:       config.DB,
+		Addr:     fmt.Sprintf("%s:%d", cfg.Redis.Host, cfg.Redis.Port),
+		Password: cfg.Redis.Password,
+		DB:       cfg.Redis.DB,
 	})
 
 	return client

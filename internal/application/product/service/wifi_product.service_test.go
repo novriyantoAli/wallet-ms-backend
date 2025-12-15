@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -47,9 +48,10 @@ func randomSKU() string {
 }
 
 func TestWiFiProductService_CreateWiFiProduct(t *testing.T) {
+	ctx := context.Background()
 	db := setupWiFiProductServiceTestDB(t)
 	logger := zap.NewNop()
-	repo := repository.NewWiFiProductRepository(db)
+	repo := repository.NewWiFiProductRepository(db, logger)
 	svc := NewWiFiProductService(repo, logger)
 
 	product := createTestProductForWiFi(t, db)
@@ -96,7 +98,7 @@ func TestWiFiProductService_CreateWiFiProduct(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp, err := svc.CreateWiFiProduct(tt.req)
+			resp, err := svc.CreateWiFiProduct(ctx, tt.req)
 
 			if tt.expectErr {
 				assert.Error(t, err)
@@ -116,9 +118,10 @@ func TestWiFiProductService_CreateWiFiProduct(t *testing.T) {
 }
 
 func TestWiFiProductService_GetWiFiProductByID(t *testing.T) {
+	ctx := context.Background()
 	db := setupWiFiProductServiceTestDB(t)
 	logger := zap.NewNop()
-	repo := repository.NewWiFiProductRepository(db)
+	repo := repository.NewWiFiProductRepository(db, logger)
 	svc := NewWiFiProductService(repo, logger)
 
 	product := createTestProductForWiFi(t, db)
@@ -129,7 +132,7 @@ func TestWiFiProductService_GetWiFiProductByID(t *testing.T) {
 		Duration:   30,
 		SpeedLimit: 50,
 	}
-	err := repo.Create(wifiProd)
+	err := repo.Create(ctx, wifiProd)
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -151,7 +154,7 @@ func TestWiFiProductService_GetWiFiProductByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp, err := svc.GetWiFiProductByID(tt.id)
+			resp, err := svc.GetWiFiProductByID(ctx, tt.id)
 
 			if tt.expectErr {
 				assert.Error(t, err)
@@ -167,9 +170,10 @@ func TestWiFiProductService_GetWiFiProductByID(t *testing.T) {
 }
 
 func TestWiFiProductService_GetWiFiProductByProductID(t *testing.T) {
+	ctx := context.Background()
 	db := setupWiFiProductServiceTestDB(t)
 	logger := zap.NewNop()
-	repo := repository.NewWiFiProductRepository(db)
+	repo := repository.NewWiFiProductRepository(db, logger)
 	svc := NewWiFiProductService(repo, logger)
 
 	product := createTestProductForWiFi(t, db)
@@ -180,7 +184,7 @@ func TestWiFiProductService_GetWiFiProductByProductID(t *testing.T) {
 		Duration:   60,
 		SpeedLimit: 75,
 	}
-	err := repo.Create(wifiProd)
+	err := repo.Create(ctx, wifiProd)
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -202,7 +206,7 @@ func TestWiFiProductService_GetWiFiProductByProductID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp, err := svc.GetWiFiProductByProductID(tt.productID)
+			resp, err := svc.GetWiFiProductByProductID(ctx, tt.productID)
 
 			if tt.expectErr {
 				assert.Error(t, err)
@@ -218,9 +222,10 @@ func TestWiFiProductService_GetWiFiProductByProductID(t *testing.T) {
 }
 
 func TestWiFiProductService_GetWiFiProducts(t *testing.T) {
+	ctx := context.Background()
 	db := setupWiFiProductServiceTestDB(t)
 	logger := zap.NewNop()
-	repo := repository.NewWiFiProductRepository(db)
+	repo := repository.NewWiFiProductRepository(db, logger)
 	svc := NewWiFiProductService(repo, logger)
 
 	// Create test products and wifi products
@@ -233,7 +238,7 @@ func TestWiFiProductService_GetWiFiProducts(t *testing.T) {
 	}
 
 	for i := range wifiProds {
-		err := repo.Create(&wifiProds[i])
+		err := repo.Create(ctx, &wifiProds[i])
 		require.NoError(t, err)
 	}
 
@@ -256,7 +261,7 @@ func TestWiFiProductService_GetWiFiProducts(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp, err := svc.GetWiFiProducts(tt.filter)
+			resp, err := svc.GetWiFiProducts(ctx, tt.filter)
 
 			assert.NoError(t, err)
 			assert.NotNil(t, resp)
@@ -266,9 +271,10 @@ func TestWiFiProductService_GetWiFiProducts(t *testing.T) {
 }
 
 func TestWiFiProductService_UpdateWiFiProduct(t *testing.T) {
+	ctx := context.Background()
 	db := setupWiFiProductServiceTestDB(t)
 	logger := zap.NewNop()
-	repo := repository.NewWiFiProductRepository(db)
+	repo := repository.NewWiFiProductRepository(db, logger)
 	svc := NewWiFiProductService(repo, logger)
 
 	product := createTestProductForWiFi(t, db)
@@ -279,7 +285,7 @@ func TestWiFiProductService_UpdateWiFiProduct(t *testing.T) {
 		Duration:   30,
 		SpeedLimit: 10,
 	}
-	err := repo.Create(wifiProd)
+	err := repo.Create(ctx, wifiProd)
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -308,7 +314,7 @@ func TestWiFiProductService_UpdateWiFiProduct(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp, err := svc.UpdateWiFiProduct(tt.id, tt.req)
+			resp, err := svc.UpdateWiFiProduct(ctx, tt.id, tt.req)
 
 			if tt.expectErr {
 				assert.Error(t, err)
@@ -325,9 +331,10 @@ func TestWiFiProductService_UpdateWiFiProduct(t *testing.T) {
 }
 
 func TestWiFiProductService_DeleteWiFiProduct(t *testing.T) {
+	ctx := context.Background()
 	db := setupWiFiProductServiceTestDB(t)
 	logger := zap.NewNop()
-	repo := repository.NewWiFiProductRepository(db)
+	repo := repository.NewWiFiProductRepository(db, logger)
 	svc := NewWiFiProductService(repo, logger)
 
 	product := createTestProductForWiFi(t, db)
@@ -338,7 +345,7 @@ func TestWiFiProductService_DeleteWiFiProduct(t *testing.T) {
 		Duration:   30,
 		SpeedLimit: 25,
 	}
-	err := repo.Create(wifiProd)
+	err := repo.Create(ctx, wifiProd)
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -355,7 +362,7 @@ func TestWiFiProductService_DeleteWiFiProduct(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := svc.DeleteWiFiProduct(tt.id)
+			err := svc.DeleteWiFiProduct(ctx, tt.id)
 
 			if tt.expectErr {
 				assert.Error(t, err)
@@ -363,7 +370,7 @@ func TestWiFiProductService_DeleteWiFiProduct(t *testing.T) {
 				assert.NoError(t, err)
 
 				// Verify deletion
-				_, err := repo.GetByID(tt.id)
+				_, err := repo.GetByID(ctx, tt.id)
 				assert.Error(t, err)
 			}
 		})

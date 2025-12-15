@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +13,7 @@ import (
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/product/entity"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/product/repository"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/product/service"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/database"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -38,9 +40,10 @@ func setupProductHandlerForTest(t *testing.T) (*ProductHandler, *gorm.DB) {
 	logger := zap.NewNop()
 
 	repo := repository.NewProductRepository(db, logger)
-	wifiRepo := repository.NewWiFiProductRepository(db)
+	wifiRepo := repository.NewWiFiProductRepository(db, logger)
 
-	svc := service.NewProductService(repo, wifiRepo, logger)
+	txManager := database.NewTransactionManager(db)
+	svc := service.NewProductService(txManager, repo, wifiRepo, logger)
 	wifiSvc := service.NewWiFiProductService(wifiRepo, logger)
 
 	handler := NewProductHandler(svc, wifiSvc, logger)
@@ -148,7 +151,7 @@ func TestProductHandler_GetProduct(t *testing.T) {
 		Price: 5000,
 		SKU:   "GET-TEST-001",
 	}
-	err := repo.Create(product)
+	err := repo.Create(context.Background(), product)
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -198,7 +201,7 @@ func TestProductHandler_GetProductBySKU(t *testing.T) {
 		Price: 5000,
 		SKU:   "UNIQUE-SKU-001",
 	}
-	err := repo.Create(product)
+	err := repo.Create(context.Background(), product)
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -248,7 +251,7 @@ func TestProductHandler_ListProducts(t *testing.T) {
 		{Name: "Phone", Price: 5000, SKU: "PHN-001", Stock: 10},
 	}
 	for i := range products {
-		err := repo.Create(&products[i])
+		err := repo.Create(context.Background(), &products[i])
 		require.NoError(t, err)
 	}
 
@@ -299,7 +302,7 @@ func TestProductHandler_UpdateProduct(t *testing.T) {
 		Category: entity.ProductCategoryWiFi,
 		Status:   entity.ProductStatusInactive,
 	}
-	err := repo.Create(product)
+	err := repo.Create(context.Background(), product)
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -364,7 +367,7 @@ func TestProductHandler_DeleteProduct(t *testing.T) {
 		Price: 5000,
 		SKU:   "DEL-001",
 	}
-	err := repo.Create(product)
+	err := repo.Create(context.Background(), product)
 	require.NoError(t, err)
 
 	tests := []struct {

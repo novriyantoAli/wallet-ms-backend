@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -15,17 +16,17 @@ import (
 )
 
 type WalletService interface {
-	CreateWallet(req *dto.CreateWalletRequest) (*dto.WalletResponse, error)
-	GetWalletByID(id uint) (*dto.WalletResponse, error)
-	GetWalletByUserID(userID uint) (*dto.WalletResponse, error)
-	GetWallets(filter *dto.WalletFilter) (*dto.WalletListResponse, error)
-	UpdateWalletBalance(walletID uint, req *dto.UpdateWalletBalanceRequest) (*dto.WalletBalanceResponse, error)
-	DeleteWallet(id uint) error
-	Transfer(senderID uint, req *dto.TransferWalletRequest) (*dto.TransferResponse, error)
-	TransferFunds(req *dto.TransferRequest) (*dto.TransferResponse, error)
-	CreateTransaction(req *dto.CreateTransactionRequest) (*dto.TransactionResponse, error)
-	GetTransactions(filter *dto.TransactionFilter) (*dto.TransactionListResponse, error)
-	GetTransactionByID(id uint) (*dto.TransactionResponse, error)
+	CreateWallet(ctx context.Context, req *dto.CreateWalletRequest) (*dto.WalletResponse, error)
+	GetWalletByID(ctx context.Context, id uint) (*dto.WalletResponse, error)
+	GetWalletByUserID(ctx context.Context, userID uint) (*dto.WalletResponse, error)
+	GetWallets(ctx context.Context, filter *dto.WalletFilter) (*dto.WalletListResponse, error)
+	UpdateWalletBalance(ctx context.Context, walletID uint, req *dto.UpdateWalletBalanceRequest) (*dto.WalletBalanceResponse, error)
+	DeleteWallet(ctx context.Context, id uint) error
+	Transfer(ctx context.Context, senderID uint, req *dto.TransferWalletRequest) (*dto.TransferResponse, error)
+	TransferFunds(ctx context.Context, req *dto.TransferRequest) (*dto.TransferResponse, error)
+	CreateTransaction(ctx context.Context, req *dto.CreateTransactionRequest) (*dto.TransactionResponse, error)
+	GetTransactions(ctx context.Context, filter *dto.TransactionFilter) (*dto.TransactionListResponse, error)
+	GetTransactionByID(ctx context.Context, id uint) (*dto.TransactionResponse, error)
 }
 
 type walletService struct {
@@ -52,7 +53,7 @@ func NewWalletService(
 	}
 }
 
-func (s *walletService) CreateWallet(req *dto.CreateWalletRequest) (*dto.WalletResponse, error) {
+func (s *walletService) CreateWallet(ctx context.Context, req *dto.CreateWalletRequest) (*dto.WalletResponse, error) {
 	// Verify that user exists
 	_, err := s.userService.GetUserByID(req.UserID)
 	if err != nil {
@@ -61,7 +62,7 @@ func (s *walletService) CreateWallet(req *dto.CreateWalletRequest) (*dto.WalletR
 	}
 
 	// Check if user already has a wallet
-	existing, err := s.repo.GetByUserID(req.UserID)
+	existing, err := s.repo.GetByUserID(ctx, req.UserID)
 	if err == nil && existing != nil {
 		s.logger.Warn("User already has a wallet", zap.Uint("user_id", req.UserID))
 		return nil, errors.New("user already has a wallet")
@@ -76,14 +77,14 @@ func (s *walletService) CreateWallet(req *dto.CreateWalletRequest) (*dto.WalletR
 		UpdatedAt: time.Now(),
 	}
 
-	err = s.repo.Create(wallet)
+	err = s.repo.Create(ctx, wallet)
 	if err != nil {
 		s.logger.Error("Failed to create wallet", zap.Error(err))
 		return nil, err
 	}
 
 	// Fetch wallet with user data
-	walletWithUser, err := s.repo.GetByUserIDWithUser(req.UserID)
+	walletWithUser, err := s.repo.GetByUserIDWithUser(ctx, req.UserID)
 	if err != nil {
 		s.logger.Error("Failed to get wallet with user data after creation", zap.Uint("user_id", req.UserID), zap.Error(err))
 		// Return basic response without user data if fetch fails
@@ -93,8 +94,8 @@ func (s *walletService) CreateWallet(req *dto.CreateWalletRequest) (*dto.WalletR
 	return s.walletWithUserToResponse(walletWithUser), nil
 }
 
-func (s *walletService) GetWalletByID(id uint) (*dto.WalletResponse, error) {
-	walletWithUser, err := s.repo.GetByIDWithUser(id)
+func (s *walletService) GetWalletByID(ctx context.Context, id uint) (*dto.WalletResponse, error) {
+	walletWithUser, err := s.repo.GetByIDWithUser(ctx, id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("wallet not found")
@@ -105,8 +106,8 @@ func (s *walletService) GetWalletByID(id uint) (*dto.WalletResponse, error) {
 	return s.walletWithUserToResponse(walletWithUser), nil
 }
 
-func (s *walletService) GetWalletByUserID(userID uint) (*dto.WalletResponse, error) {
-	walletWithUser, err := s.repo.GetByUserIDWithUser(userID)
+func (s *walletService) GetWalletByUserID(ctx context.Context, userID uint) (*dto.WalletResponse, error) {
+	walletWithUser, err := s.repo.GetByUserIDWithUser(ctx, userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("wallet not found for user")
@@ -117,7 +118,7 @@ func (s *walletService) GetWalletByUserID(userID uint) (*dto.WalletResponse, err
 	return s.walletWithUserToResponse(walletWithUser), nil
 }
 
-func (s *walletService) GetWallets(filter *dto.WalletFilter) (*dto.WalletListResponse, error) {
+func (s *walletService) GetWallets(ctx context.Context, filter *dto.WalletFilter) (*dto.WalletListResponse, error) {
 	if filter.Page <= 0 {
 		filter.Page = 1
 	}
@@ -125,7 +126,7 @@ func (s *walletService) GetWallets(filter *dto.WalletFilter) (*dto.WalletListRes
 		filter.PageSize = 10
 	}
 
-	walletsWithUser, totalCount, err := s.repo.GetAllWithUser(filter)
+	walletsWithUser, totalCount, err := s.repo.GetAllWithUser(ctx, filter)
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +144,7 @@ func (s *walletService) GetWallets(filter *dto.WalletFilter) (*dto.WalletListRes
 	}, nil
 }
 
-func (s *walletService) UpdateWalletBalance(walletID uint, req *dto.UpdateWalletBalanceRequest) (*dto.WalletBalanceResponse, error) {
+func (s *walletService) UpdateWalletBalance(ctx context.Context, walletID uint, req *dto.UpdateWalletBalanceRequest) (*dto.WalletBalanceResponse, error) {
 	// Start database transaction for atomicity
 	tx := s.db.Begin()
 	if tx.Error != nil {
@@ -231,8 +232,8 @@ func (s *walletService) UpdateWalletBalance(walletID uint, req *dto.UpdateWallet
 	}, nil
 }
 
-func (s *walletService) DeleteWallet(id uint) error {
-	_, err := s.repo.GetByID(id)
+func (s *walletService) DeleteWallet(ctx context.Context, id uint) error {
+	_, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errors.New("wallet not found")
@@ -240,10 +241,10 @@ func (s *walletService) DeleteWallet(id uint) error {
 		return err
 	}
 
-	return s.repo.Delete(id)
+	return s.repo.Delete(ctx, id)
 }
 
-func (s *walletService) TransferFunds(req *dto.TransferRequest) (*dto.TransferResponse, error) {
+func (s *walletService) TransferFunds(ctx context.Context, req *dto.TransferRequest) (*dto.TransferResponse, error) {
 	// Validate that source and destination wallets are different
 	if req.FromWalletID == req.ToWalletID {
 		s.logger.Warn("Transfer to same wallet attempted", zap.Uint("wallet_id", req.FromWalletID))
@@ -251,7 +252,7 @@ func (s *walletService) TransferFunds(req *dto.TransferRequest) (*dto.TransferRe
 	}
 
 	// Get source wallet
-	fromWallet, err := s.repo.GetByID(req.FromWalletID)
+	fromWallet, err := s.repo.GetByID(ctx, req.FromWalletID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			s.logger.Warn("Source wallet not found", zap.Uint("wallet_id", req.FromWalletID))
@@ -261,7 +262,7 @@ func (s *walletService) TransferFunds(req *dto.TransferRequest) (*dto.TransferRe
 	}
 
 	// Get destination wallet
-	toWallet, err := s.repo.GetByID(req.ToWalletID)
+	toWallet, err := s.repo.GetByID(ctx, req.ToWalletID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			s.logger.Warn("Destination wallet not found", zap.Uint("wallet_id", req.ToWalletID))
@@ -290,7 +291,7 @@ func (s *walletService) TransferFunds(req *dto.TransferRequest) (*dto.TransferRe
 	toWallet.UpdatedAt = time.Now()
 
 	// Update source wallet
-	err = s.repo.Update(fromWallet)
+	err = s.repo.Update(ctx, fromWallet)
 	if err != nil {
 		s.logger.Error("Failed to debit source wallet",
 			zap.Uint("from_wallet_id", req.FromWalletID),
@@ -299,12 +300,12 @@ func (s *walletService) TransferFunds(req *dto.TransferRequest) (*dto.TransferRe
 	}
 
 	// Update destination wallet
-	err = s.repo.Update(toWallet)
+	err = s.repo.Update(ctx, toWallet)
 	if err != nil {
 		// Rollback source wallet debit by crediting it back
 		fromWallet.Balance += req.Amount
 		fromWallet.UpdatedAt = time.Now()
-		s.repo.Update(fromWallet)
+		s.repo.Update(ctx, fromWallet)
 		s.logger.Error("Failed to credit destination wallet, rolled back source wallet",
 			zap.Uint("to_wallet_id", req.ToWalletID),
 			zap.Error(err))
@@ -336,7 +337,7 @@ func (s *walletService) TransferFunds(req *dto.TransferRequest) (*dto.TransferRe
 }
 
 // Transfer performs a wallet transfer from sender to recipient with level-based access control
-func (s *walletService) Transfer(senderID uint, req *dto.TransferWalletRequest) (*dto.TransferResponse, error) {
+func (s *walletService) Transfer(ctx context.Context, senderID uint, req *dto.TransferWalletRequest) (*dto.TransferResponse, error) {
 	// Get sender user to check level
 	senderUser, err := s.userService.GetUserByID(senderID)
 	if err != nil {
@@ -366,7 +367,7 @@ func (s *walletService) Transfer(senderID uint, req *dto.TransferWalletRequest) 
 	}
 
 	// Get sender wallet
-	senderWallet, err := s.repo.GetByUserID(senderID)
+	senderWallet, err := s.repo.GetByUserID(ctx, senderID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			s.logger.Warn("Sender wallet not found", zap.Uint("user_id", senderID))
@@ -376,7 +377,7 @@ func (s *walletService) Transfer(senderID uint, req *dto.TransferWalletRequest) 
 	}
 
 	// Get recipient wallet
-	recipientWallet, err := s.repo.GetByUserID(req.RecipientUserID)
+	recipientWallet, err := s.repo.GetByUserID(ctx, req.RecipientUserID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			s.logger.Warn("Recipient wallet not found", zap.Uint("user_id", req.RecipientUserID))
@@ -548,7 +549,7 @@ func (s *walletService) walletWithUserToResponse(walletWithUser *repository.Wall
 	}
 }
 
-func (s *walletService) CreateTransaction(req *dto.CreateTransactionRequest) (*dto.TransactionResponse, error) {
+func (s *walletService) CreateTransaction(ctx context.Context, req *dto.CreateTransactionRequest) (*dto.TransactionResponse, error) {
 	// Validate transaction type
 	transactionType := entity.TransactionType(req.Type)
 	if !transactionType.IsValid() {
@@ -557,7 +558,7 @@ func (s *walletService) CreateTransaction(req *dto.CreateTransactionRequest) (*d
 	}
 
 	// Get wallet
-	wallet, err := s.repo.GetByID(req.WalletID)
+	wallet, err := s.repo.GetByID(ctx, req.WalletID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			s.logger.Warn("Wallet not found for transaction", zap.Uint("wallet_id", req.WalletID))
@@ -591,7 +592,7 @@ func (s *walletService) CreateTransaction(req *dto.CreateTransactionRequest) (*d
 	wallet.UpdatedAt = time.Now()
 
 	// Update wallet
-	err = s.repo.Update(wallet)
+	err = s.repo.Update(ctx, wallet)
 	if err != nil {
 		s.logger.Error("Failed to update wallet", zap.Uint("wallet_id", req.WalletID), zap.Error(err))
 		return nil, err
@@ -609,13 +610,13 @@ func (s *walletService) CreateTransaction(req *dto.CreateTransactionRequest) (*d
 		UpdatedAt:    time.Now(),
 	}
 
-	err = s.transactionRepo.Create(transaction)
+	err = s.transactionRepo.Create(ctx, transaction)
 	if err != nil {
 		s.logger.Error("Failed to create transaction record", zap.Error(err))
 		// Rollback wallet balance change
 		wallet.Balance = previousBalance
 		wallet.UpdatedAt = time.Now()
-		s.repo.Update(wallet)
+		s.repo.Update(ctx, wallet)
 		return nil, err
 	}
 
@@ -628,7 +629,7 @@ func (s *walletService) CreateTransaction(req *dto.CreateTransactionRequest) (*d
 	return s.transactionEntityToResponse(transaction), nil
 }
 
-func (s *walletService) GetTransactions(filter *dto.TransactionFilter) (*dto.TransactionListResponse, error) {
+func (s *walletService) GetTransactions(ctx context.Context, filter *dto.TransactionFilter) (*dto.TransactionListResponse, error) {
 	if filter.Page <= 0 {
 		filter.Page = 1
 	}
@@ -636,7 +637,7 @@ func (s *walletService) GetTransactions(filter *dto.TransactionFilter) (*dto.Tra
 		filter.PageSize = 10
 	}
 
-	transactions, totalCount, err := s.transactionRepo.GetByWalletID(filter)
+	transactions, totalCount, err := s.transactionRepo.GetByWalletID(ctx, filter)
 	if err != nil {
 		return nil, err
 	}
@@ -654,8 +655,8 @@ func (s *walletService) GetTransactions(filter *dto.TransactionFilter) (*dto.Tra
 	}, nil
 }
 
-func (s *walletService) GetTransactionByID(id uint) (*dto.TransactionResponse, error) {
-	transaction, err := s.transactionRepo.GetByID(id)
+func (s *walletService) GetTransactionByID(ctx context.Context, id uint) (*dto.TransactionResponse, error) {
+	transaction, err := s.transactionRepo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("transaction not found")

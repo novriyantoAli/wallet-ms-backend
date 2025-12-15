@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -37,7 +38,7 @@ func setupWiFiProductHandlerForTest(t *testing.T) (*WiFiProductHandler, *gorm.DB
 	db := setupWiFiProductHandlerTestDB(t)
 	logger := zap.NewNop()
 
-	wifiRepo := repository.NewWiFiProductRepository(db)
+	wifiRepo := repository.NewWiFiProductRepository(db, logger)
 	wifiSvc := service.NewWiFiProductService(wifiRepo, logger)
 	handler := NewWiFiProductHandler(wifiSvc, logger)
 
@@ -114,14 +115,15 @@ func TestWiFiProductHandler_GetWiFiProduct(t *testing.T) {
 	handler, db := setupWiFiProductHandlerForTest(t)
 
 	product := createTestBaseProduct(t, db)
-	wifiRepo := repository.NewWiFiProductRepository(db)
+	logger := zap.NewNop()
+	wifiRepo := repository.NewWiFiProductRepository(db, logger)
 	wifiProd := &entity.WiFiProduct{
 		ProductID:  product.ID,
 		Quota:      10,
 		Duration:   30,
 		SpeedLimit: 10,
 	}
-	err := wifiRepo.Create(wifiProd)
+	err := wifiRepo.Create(context.Background(), wifiProd)
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -165,14 +167,15 @@ func TestWiFiProductHandler_GetWiFiProductByProductID(t *testing.T) {
 	handler, db := setupWiFiProductHandlerForTest(t)
 
 	product := createTestBaseProduct(t, db)
-	wifiRepo := repository.NewWiFiProductRepository(db)
+	logger := zap.NewNop()
+	wifiRepo := repository.NewWiFiProductRepository(db, logger)
 	wifiProd := &entity.WiFiProduct{
 		ProductID:  product.ID,
 		Quota:      10,
 		Duration:   30,
 		SpeedLimit: 10,
 	}
-	err := wifiRepo.Create(wifiProd)
+	err := wifiRepo.Create(context.Background(), wifiProd)
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -225,13 +228,14 @@ func TestWiFiProductHandler_ListWiFiProducts(t *testing.T) {
 	err := db.Create(product2).Error
 	require.NoError(t, err)
 
-	wifiRepo := repository.NewWiFiProductRepository(db)
+	logger := zap.NewNop()
+	wifiRepo := repository.NewWiFiProductRepository(db, logger)
 	wifiProds := []entity.WiFiProduct{
 		{ProductID: product1.ID, Quota: 10, Duration: 30, SpeedLimit: 10},
 		{ProductID: product2.ID, Quota: 20, Duration: 60, SpeedLimit: 50},
 	}
 	for i := range wifiProds {
-		err := wifiRepo.Create(&wifiProds[i])
+		err := wifiRepo.Create(context.Background(), &wifiProds[i])
 		require.NoError(t, err)
 	}
 
@@ -274,14 +278,15 @@ func TestWiFiProductHandler_UpdateWiFiProduct(t *testing.T) {
 	handler, db := setupWiFiProductHandlerForTest(t)
 
 	product := createTestBaseProduct(t, db)
-	wifiRepo := repository.NewWiFiProductRepository(db)
+	logger := zap.NewNop()
+	wifiRepo := repository.NewWiFiProductRepository(db, logger)
 	wifiProd := &entity.WiFiProduct{
 		ProductID:  product.ID,
 		Quota:      10,
 		Duration:   30,
 		SpeedLimit: 10,
 	}
-	err := wifiRepo.Create(wifiProd)
+	err := wifiRepo.Create(context.Background(), wifiProd)
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -306,7 +311,7 @@ func TestWiFiProductHandler_UpdateWiFiProduct(t *testing.T) {
 			req: dto.UpdateWiFiProductRequest{
 				Quota: 10,
 			},
-			expectedStatus: http.StatusBadRequest,
+			expectedStatus: http.StatusNotFound,
 		},
 	}
 
@@ -333,14 +338,15 @@ func TestWiFiProductHandler_DeleteWiFiProduct(t *testing.T) {
 	handler, db := setupWiFiProductHandlerForTest(t)
 
 	product := createTestBaseProduct(t, db)
-	wifiRepo := repository.NewWiFiProductRepository(db)
+	logger := zap.NewNop()
+	wifiRepo := repository.NewWiFiProductRepository(db, logger)
 	wifiProd := &entity.WiFiProduct{
 		ProductID:  product.ID,
 		Quota:      10,
 		Duration:   30,
 		SpeedLimit: 10,
 	}
-	err := wifiRepo.Create(wifiProd)
+	err := wifiRepo.Create(context.Background(), wifiProd)
 	require.NoError(t, err)
 
 	tests := []struct {

@@ -9,8 +9,10 @@ import (
 
 	"github.com/novriyantoAli/wallet-ms-backend/internal/config"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/database"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/jwt"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/logger"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/queue"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/redis"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/server/worker"
 
 	"go.uber.org/fx"
@@ -24,6 +26,8 @@ func main() {
 			database.NewDatabase,
 			queue.NewClient,
 			queue.NewServer,
+			redis.NewRedisClient,
+			jwt.NewJWTManagerWithRedis,
 		),
 		worker.Module,
 		fx.Invoke(runWorker),

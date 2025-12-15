@@ -34,6 +34,7 @@ func NewWiFiProductHandler(svc service.WiFiProductService, logger *zap.Logger) *
 // @Failure 400 {object} map[string]string
 // @Router /api/v1/products/wifi [post]
 func (h *WiFiProductHandler) CreateWiFiProduct(c *gin.Context) {
+	ctx := c.Request.Context()
 	var req dto.CreateWiFiProductRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.logger.Warn("Invalid create wifi product request", zap.Error(err))
@@ -41,7 +42,7 @@ func (h *WiFiProductHandler) CreateWiFiProduct(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.service.CreateWiFiProduct(&req)
+	resp, err := h.service.CreateWiFiProduct(ctx, &req)
 	if err != nil {
 		h.logger.Warn("Failed to create wifi product", zap.Error(err))
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -62,6 +63,7 @@ func (h *WiFiProductHandler) CreateWiFiProduct(c *gin.Context) {
 // @Failure 404 {object} map[string]string
 // @Router /api/v1/products/wifi/{id} [get]
 func (h *WiFiProductHandler) GetWiFiProduct(c *gin.Context) {
+	ctx := c.Request.Context()
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
@@ -70,7 +72,7 @@ func (h *WiFiProductHandler) GetWiFiProduct(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.service.GetWiFiProductByID(uint(id))
+	resp, err := h.service.GetWiFiProductByID(ctx, uint(id))
 	if err != nil {
 		h.logger.Debug("WiFi product not found", zap.Uint("id", uint(id)))
 		c.JSON(http.StatusNotFound, gin.H{"error": "wifi product not found"})
@@ -90,6 +92,7 @@ func (h *WiFiProductHandler) GetWiFiProduct(c *gin.Context) {
 // @Failure 404 {object} map[string]string
 // @Router /api/v1/products/wifi/product/{product_id} [get]
 func (h *WiFiProductHandler) GetWiFiProductByProductID(c *gin.Context) {
+	ctx := c.Request.Context()
 	productIDStr := c.Param("product_id")
 	productID, err := strconv.ParseUint(productIDStr, 10, 32)
 	if err != nil {
@@ -98,7 +101,7 @@ func (h *WiFiProductHandler) GetWiFiProductByProductID(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.service.GetWiFiProductByProductID(uint(productID))
+	resp, err := h.service.GetWiFiProductByProductID(ctx, uint(productID))
 	if err != nil {
 		h.logger.Debug("WiFi product not found", zap.Uint("product_id", uint(productID)))
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
@@ -118,6 +121,7 @@ func (h *WiFiProductHandler) GetWiFiProductByProductID(c *gin.Context) {
 // @Success 200 {object} dto.WiFiProductListResponse
 // @Router /api/v1/products/wifi [get]
 func (h *WiFiProductHandler) ListWiFiProducts(c *gin.Context) {
+	ctx := c.Request.Context()
 	pageStr := c.DefaultQuery("page", "1")
 	limitStr := c.DefaultQuery("limit", "10")
 
@@ -136,7 +140,7 @@ func (h *WiFiProductHandler) ListWiFiProducts(c *gin.Context) {
 		Limit: limit,
 	}
 
-	resp, err := h.service.GetWiFiProducts(filter)
+	resp, err := h.service.GetWiFiProducts(ctx, filter)
 	if err != nil {
 		h.logger.Error("Failed to list wifi products", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list wifi products"})
@@ -158,6 +162,7 @@ func (h *WiFiProductHandler) ListWiFiProducts(c *gin.Context) {
 // @Failure 404 {object} map[string]string
 // @Router /api/v1/products/wifi/{id} [put]
 func (h *WiFiProductHandler) UpdateWiFiProduct(c *gin.Context) {
+	ctx := c.Request.Context()
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
@@ -173,7 +178,7 @@ func (h *WiFiProductHandler) UpdateWiFiProduct(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.service.UpdateWiFiProduct(uint(id), &req)
+	resp, err := h.service.UpdateWiFiProduct(ctx, uint(id), &req)
 	if err != nil {
 		if err.Error() == "wifi product not found" {
 			c.JSON(http.StatusNotFound, gin.H{"error": "wifi product not found"})
@@ -197,6 +202,7 @@ func (h *WiFiProductHandler) UpdateWiFiProduct(c *gin.Context) {
 // @Failure 404 {object} map[string]string
 // @Router /api/v1/products/wifi/{id} [delete]
 func (h *WiFiProductHandler) DeleteWiFiProduct(c *gin.Context) {
+	ctx := c.Request.Context()
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
@@ -205,7 +211,7 @@ func (h *WiFiProductHandler) DeleteWiFiProduct(c *gin.Context) {
 		return
 	}
 
-	err = h.service.DeleteWiFiProduct(uint(id))
+	err = h.service.DeleteWiFiProduct(ctx, uint(id))
 	if err != nil {
 		if err.Error() == "wifi product not found" {
 			c.JSON(http.StatusNotFound, gin.H{"error": "wifi product not found"})

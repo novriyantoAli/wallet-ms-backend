@@ -9,6 +9,7 @@ import (
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/user/dto"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/user/entity"
 	walletEntity "github.com/novriyantoAli/wallet-ms-backend/internal/application/wallet/entity"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/config"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/jwt"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/testutil"
 
@@ -18,11 +19,17 @@ import (
 	"gorm.io/gorm"
 )
 
+func newTestConfig() *config.Config {
+	return &config.Config{
+		JWT: config.JWTConfig{
+			SecretKey: "test-secret-key",
+			Expiry:    24 * time.Hour,
+		},
+	}
+}
+
 func newTestJWTManager() *jwt.JWTManager {
-	return jwt.NewJWTManager(jwt.JWTConfig{
-		SecretKey: "test-secret-key",
-		Expiry:    24 * time.Hour,
-	})
+	return jwt.NewJWTManager(newTestConfig())
 }
 
 func TestUserService_CreateUser(t *testing.T) {
@@ -36,12 +43,12 @@ func TestUserService_CreateUser(t *testing.T) {
 		req := testutil.CreateUserRequestFixture()
 
 		// Mock expectations
-		mockRepo.On("EmailExists", req.Email).Return(false, nil)
-		mockRepo.On("Create", mock.AnythingOfType("*entity.User")).Return(nil).Run(func(args mock.Arguments) {
-			user := args.Get(0).(*entity.User)
+		mockRepo.On("EmailExists", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), req.Email).Return(false, nil)
+		mockRepo.On("Create", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), mock.AnythingOfType("*entity.User")).Return(nil).Run(func(args mock.Arguments) {
+			user := args.Get(1).(*entity.User)
 			user.ID = 1
 		})
-		mockWalletRepo.On("Create", mock.AnythingOfType("*entity.Wallet")).Return(nil)
+		mockWalletRepo.On("Create", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), mock.AnythingOfType("*entity.Wallet")).Return(nil)
 
 		// When
 		response, err := service.CreateUser(req)
@@ -67,12 +74,16 @@ func TestUserService_CreateUser(t *testing.T) {
 		req := testutil.CreateUserRequestFixture()
 
 		// Mock expectations
-		mockRepo.On("EmailExists", req.Email).Return(false, nil)
-		mockRepo.On("Create", mock.AnythingOfType("*entity.User")).Return(nil).Run(func(args mock.Arguments) {
-			user := args.Get(0).(*entity.User)
+		mockRepo.On("EmailExists", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), req.Email).Return(false, nil)
+		mockRepo.On("Create", mock.MatchedBy(func(ctx context.Context) bool {
+			return ctx != nil
+		}), mock.AnythingOfType("*entity.User")).Return(nil).Run(func(args mock.Arguments) {
+			user := args.Get(1).(*entity.User)
 			user.ID = 1
 		})
-		mockWalletRepo.On("Create", mock.AnythingOfType("*entity.Wallet")).Return(errors.New("wallet creation failed"))
+		mockWalletRepo.On("Create", mock.MatchedBy(func(ctx context.Context) bool {
+			return ctx != nil
+		}), mock.AnythingOfType("*entity.Wallet")).Return(errors.New("wallet creation failed"))
 
 		// When
 		response, err := service.CreateUser(req)
@@ -95,7 +106,7 @@ func TestUserService_CreateUser(t *testing.T) {
 		req := testutil.CreateUserRequestFixture()
 
 		// Mock expectations
-		mockRepo.On("EmailExists", req.Email).Return(true, nil)
+		mockRepo.On("EmailExists", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), req.Email).Return(true, nil)
 
 		// When
 		response, err := service.CreateUser(req)
@@ -117,7 +128,7 @@ func TestUserService_CreateUser(t *testing.T) {
 		req := testutil.CreateUserRequestFixture()
 
 		// Mock expectations
-		mockRepo.On("EmailExists", req.Email).Return(false, errors.New("database error"))
+		mockRepo.On("EmailExists", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), req.Email).Return(false, errors.New("database error"))
 
 		// When
 		response, err := service.CreateUser(req)
@@ -139,8 +150,10 @@ func TestUserService_CreateUser(t *testing.T) {
 		req := testutil.CreateUserRequestFixture()
 
 		// Mock expectations
-		mockRepo.On("EmailExists", req.Email).Return(false, nil)
-		mockRepo.On("Create", mock.AnythingOfType("*entity.User")).Return(errors.New("create failed"))
+		mockRepo.On("EmailExists", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), req.Email).Return(false, nil)
+		mockRepo.On("Create", mock.MatchedBy(func(ctx context.Context) bool {
+			return ctx != nil
+		}), mock.AnythingOfType("*entity.User")).Return(errors.New("create failed"))
 
 		// When
 		response, err := service.CreateUser(req)
@@ -165,7 +178,7 @@ func TestUserService_GetUserByID(t *testing.T) {
 		user.ID = userID
 
 		// Mock expectations
-		mockRepo.On("GetByID", userID).Return(user, nil)
+		mockRepo.On("GetByID", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), userID).Return(user, nil)
 
 		// When
 		response, err := service.GetUserByID(userID)
@@ -188,7 +201,7 @@ func TestUserService_GetUserByID(t *testing.T) {
 		userID := uint(999)
 
 		// Mock expectations
-		mockRepo.On("GetByID", userID).Return(nil, gorm.ErrRecordNotFound)
+		mockRepo.On("GetByID", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), userID).Return(nil, gorm.ErrRecordNotFound)
 
 		// When
 		response, err := service.GetUserByID(userID)
@@ -209,7 +222,7 @@ func TestUserService_GetUserByID(t *testing.T) {
 		userID := uint(1)
 
 		// Mock expectations
-		mockRepo.On("GetByID", userID).Return(nil, errors.New("database error"))
+		mockRepo.On("GetByID", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), userID).Return(nil, errors.New("database error"))
 
 		// When
 		response, err := service.GetUserByID(userID)
@@ -234,7 +247,7 @@ func TestUserService_GetUserByEmail(t *testing.T) {
 		user.Email = email
 
 		// Mock expectations
-		mockRepo.On("GetByEmail", email).Return(user, nil)
+		mockRepo.On("GetByEmail", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), email).Return(user, nil)
 
 		// When
 		response, err := service.GetUserByEmail(email)
@@ -256,7 +269,7 @@ func TestUserService_GetUserByEmail(t *testing.T) {
 		email := "nonexistent@example.com"
 
 		// Mock expectations
-		mockRepo.On("GetByEmail", email).Return(nil, gorm.ErrRecordNotFound)
+		mockRepo.On("GetByEmail", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), email).Return(nil, gorm.ErrRecordNotFound)
 
 		// When
 		response, err := service.GetUserByEmail(email)
@@ -290,7 +303,7 @@ func TestUserService_GetUsers(t *testing.T) {
 		users[1].Email = "user2@example.com"
 
 		// Mock expectations
-		mockRepo.On("GetAll", filter).Return(users, int64(2), nil)
+		mockRepo.On("GetAll", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), filter).Return(users, int64(2), nil)
 
 		// When
 		response, err := service.GetUsers(filter)
@@ -322,7 +335,7 @@ func TestUserService_GetUsers(t *testing.T) {
 		}
 
 		// Mock expectations
-		mockRepo.On("GetAll", expectedFilter).Return([]entity.User{}, int64(0), nil)
+		mockRepo.On("GetAll", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), expectedFilter).Return([]entity.User{}, int64(0), nil)
 
 		// When
 		response, err := service.GetUsers(filter)
@@ -347,7 +360,7 @@ func TestUserService_GetUsers(t *testing.T) {
 		}
 
 		// Mock expectations
-		mockRepo.On("GetAll", filter).Return(nil, int64(0), errors.New("database error"))
+		mockRepo.On("GetAll", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), filter).Return(nil, int64(0), errors.New("database error"))
 
 		// When
 		response, err := service.GetUsers(filter)
@@ -374,8 +387,8 @@ func TestUserService_UpdateUser(t *testing.T) {
 		req := testutil.CreateUpdateUserRequestFixture()
 
 		// Mock expectations
-		mockRepo.On("GetByID", userID).Return(existingUser, nil)
-		mockRepo.On("Update", mock.AnythingOfType("*entity.User")).Return(nil)
+		mockRepo.On("GetByID", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), userID).Return(existingUser, nil)
+		mockRepo.On("Update", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), mock.AnythingOfType("*entity.User")).Return(nil)
 
 		// When
 		response, err := service.UpdateUser(userID, req)
@@ -398,7 +411,7 @@ func TestUserService_UpdateUser(t *testing.T) {
 		req := testutil.CreateUpdateUserRequestFixture()
 
 		// Mock expectations
-		mockRepo.On("GetByID", userID).Return(nil, gorm.ErrRecordNotFound)
+		mockRepo.On("GetByID", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), userID).Return(nil, gorm.ErrRecordNotFound)
 
 		// When
 		response, err := service.UpdateUser(userID, req)
@@ -427,8 +440,8 @@ func TestUserService_UpdateUser(t *testing.T) {
 		}
 
 		// Mock expectations
-		mockRepo.On("GetByID", userID).Return(existingUser, nil)
-		mockRepo.On("Update", mock.MatchedBy(func(u *entity.User) bool {
+		mockRepo.On("GetByID", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), userID).Return(existingUser, nil)
+		mockRepo.On("Update", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), mock.MatchedBy(func(u *entity.User) bool {
 			return u.ID == userID && u.Name == req.Name && u.Email == originalEmail
 		})).Return(nil)
 
@@ -460,8 +473,8 @@ func TestUserService_UpdateUser(t *testing.T) {
 		}
 
 		// Mock expectations
-		mockRepo.On("GetByID", userID).Return(existingUser, nil)
-		mockRepo.On("Update", mock.MatchedBy(func(u *entity.User) bool {
+		mockRepo.On("GetByID", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), userID).Return(existingUser, nil)
+		mockRepo.On("Update", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), mock.MatchedBy(func(u *entity.User) bool {
 			return u.ID == userID && u.Name == req.Name && u.Level == entity.UserLevel(req.Level)
 		})).Return(nil)
 
@@ -498,8 +511,8 @@ func TestUserService_UpdateUserPassword(t *testing.T) {
 		}
 
 		// Mock expectations
-		mockRepo.On("GetByID", userID).Return(existingUser, nil)
-		mockRepo.On("Update", mock.AnythingOfType("*entity.User")).Return(nil)
+		mockRepo.On("GetByID", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), userID).Return(existingUser, nil)
+		mockRepo.On("Update", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), mock.AnythingOfType("*entity.User")).Return(nil)
 
 		// When
 		err := service.UpdateUserPassword(userID, req)
@@ -522,7 +535,7 @@ func TestUserService_UpdateUserPassword(t *testing.T) {
 		}
 
 		// Mock expectations
-		mockRepo.On("GetByID", userID).Return(nil, gorm.ErrRecordNotFound)
+		mockRepo.On("GetByID", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), userID).Return(nil, gorm.ErrRecordNotFound)
 
 		// When
 		err := service.UpdateUserPassword(userID, req)
@@ -552,7 +565,7 @@ func TestUserService_UpdateUserPassword(t *testing.T) {
 		}
 
 		// Mock expectations
-		mockRepo.On("GetByID", userID).Return(existingUser, nil)
+		mockRepo.On("GetByID", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), userID).Return(existingUser, nil)
 
 		// When
 		err := service.UpdateUserPassword(userID, req)
@@ -577,9 +590,9 @@ func TestUserService_DeleteUser(t *testing.T) {
 		user.ID = userID
 
 		// Mock expectations
-		mockRepo.On("GetByID", userID).Return(user, nil)
-		mockWalletRepo.On("GetByUserID", userID).Return(nil, gorm.ErrRecordNotFound)
-		mockRepo.On("Delete", userID).Return(nil)
+		mockRepo.On("GetByID", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), userID).Return(user, nil)
+		mockWalletRepo.On("GetByUserID", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), userID).Return(nil, gorm.ErrRecordNotFound)
+		mockRepo.On("Delete", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), userID).Return(nil)
 
 		// When
 		err := service.DeleteUser(userID)
@@ -600,7 +613,7 @@ func TestUserService_DeleteUser(t *testing.T) {
 		userID := uint(999)
 
 		// Mock expectations
-		mockRepo.On("GetByID", userID).Return(nil, gorm.ErrRecordNotFound)
+		mockRepo.On("GetByID", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), userID).Return(nil, gorm.ErrRecordNotFound)
 
 		// When
 		err := service.DeleteUser(userID)
@@ -623,9 +636,9 @@ func TestUserService_DeleteUser(t *testing.T) {
 		user.ID = userID
 
 		// Mock expectations
-		mockRepo.On("GetByID", userID).Return(user, nil)
-		mockWalletRepo.On("GetByUserID", userID).Return(nil, gorm.ErrRecordNotFound)
-		mockRepo.On("Delete", userID).Return(errors.New("delete failed"))
+		mockRepo.On("GetByID", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), userID).Return(user, nil)
+		mockWalletRepo.On("GetByUserID", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), userID).Return(nil, gorm.ErrRecordNotFound)
+		mockRepo.On("Delete", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), userID).Return(errors.New("delete failed"))
 
 		// When
 		err := service.DeleteUser(userID)
@@ -679,12 +692,12 @@ func TestUserService_Register(t *testing.T) {
 		}
 
 		// Mock expectations
-		mockRepo.On("EmailExists", req.Email).Return(false, nil)
-		mockRepo.On("Create", mock.AnythingOfType("*entity.User")).Return(nil).Run(func(args mock.Arguments) {
-			user := args.Get(0).(*entity.User)
+		mockRepo.On("EmailExists", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), req.Email).Return(false, nil)
+		mockRepo.On("Create", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), mock.AnythingOfType("*entity.User")).Return(nil).Run(func(args mock.Arguments) {
+			user := args.Get(1).(*entity.User)
 			user.ID = 1
 		})
-		mockWalletRepo.On("Create", mock.AnythingOfType("*entity.Wallet")).Return(nil)
+		mockWalletRepo.On("Create", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), mock.AnythingOfType("*entity.Wallet")).Return(nil)
 
 		// When
 		response, err := service.Register(req)
@@ -713,12 +726,12 @@ func TestUserService_Register(t *testing.T) {
 		}
 
 		// Mock expectations
-		mockRepo.On("EmailExists", req.Email).Return(false, nil)
-		mockRepo.On("Create", mock.AnythingOfType("*entity.User")).Return(nil).Run(func(args mock.Arguments) {
-			user := args.Get(0).(*entity.User)
+		mockRepo.On("EmailExists", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), req.Email).Return(false, nil)
+		mockRepo.On("Create", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), mock.AnythingOfType("*entity.User")).Return(nil).Run(func(args mock.Arguments) {
+			user := args.Get(1).(*entity.User)
 			user.ID = 2
 		})
-		mockWalletRepo.On("Create", mock.AnythingOfType("*entity.Wallet")).Return(errors.New("wallet creation failed"))
+		mockWalletRepo.On("Create", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), mock.AnythingOfType("*entity.Wallet")).Return(errors.New("wallet creation failed"))
 
 		// When
 		response, err := service.Register(req)
@@ -745,7 +758,7 @@ func TestUserService_Register(t *testing.T) {
 		}
 
 		// Mock expectations
-		mockRepo.On("EmailExists", req.Email).Return(true, nil)
+		mockRepo.On("EmailExists", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), req.Email).Return(true, nil)
 
 		// When
 		response, err := service.Register(req)
@@ -778,7 +791,7 @@ func TestUserService_Login(t *testing.T) {
 		user.Password = string(hashedPassword)
 
 		// Mock expectations
-		mockRepo.On("GetByEmail", req.Email).Return(user, nil)
+		mockRepo.On("GetByEmail", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), req.Email).Return(user, nil)
 
 		// When
 		response, err := service.Login(req)
@@ -805,7 +818,7 @@ func TestUserService_Login(t *testing.T) {
 		}
 
 		// Mock expectations
-		mockRepo.On("GetByEmail", req.Email).Return(nil, gorm.ErrRecordNotFound)
+		mockRepo.On("GetByEmail", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), req.Email).Return(nil, gorm.ErrRecordNotFound)
 
 		// When
 		response, err := service.Login(req)
@@ -836,7 +849,7 @@ func TestUserService_Login(t *testing.T) {
 		user.Password = string(hashedPassword)
 
 		// Mock expectations
-		mockRepo.On("GetByEmail", req.Email).Return(user, nil)
+		mockRepo.On("GetByEmail", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), req.Email).Return(user, nil)
 
 		// When
 		response, err := service.Login(req)
@@ -872,7 +885,7 @@ func TestUserService_GetCurrentUser(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Mock expectations
-		mockRepo.On("GetByID", user.ID).Return(user, nil)
+		mockRepo.On("GetByID", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), user.ID).Return(user, nil)
 
 		// When
 		response, err := service.GetCurrentUser(token)
@@ -920,7 +933,7 @@ func TestUserService_GetCurrentUser(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Mock expectations
-		mockRepo.On("GetByID", user.ID).Return(nil, gorm.ErrRecordNotFound)
+		mockRepo.On("GetByID", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), user.ID).Return(nil, gorm.ErrRecordNotFound)
 
 		// When
 		response, err := service.GetCurrentUser(token)
@@ -972,11 +985,13 @@ func TestUserService_Logout(t *testing.T) {
 		logger := testutil.NewSilentLogger()
 
 		// Create JWT manager with very short expiry
-		config := jwt.JWTConfig{
-			SecretKey: "test-secret-key",
-			Expiry:    -time.Second, // Already expired
+		cfg := &config.Config{
+			JWT: config.JWTConfig{
+				SecretKey: "test-secret-key",
+				Expiry:    -time.Second, // Already expired
+			},
 		}
-		jwtManager := jwt.NewJWTManager(config)
+		jwtManager := jwt.NewJWTManager(cfg)
 		service := NewUserService(mockRepo, &testutil.MockWalletRepository{}, jwtManager, logger)
 
 		// Generate a token that's already expired
@@ -1007,8 +1022,8 @@ func TestUserService_CreateWalletForUser(t *testing.T) {
 		userID := uint(1)
 
 		// Mock expectations
-		mockWalletRepo.On("Create", mock.AnythingOfType("*entity.Wallet")).Return(nil).Run(func(args mock.Arguments) {
-			wallet := args.Get(0).(*walletEntity.Wallet)
+		mockWalletRepo.On("Create", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), mock.AnythingOfType("*entity.Wallet")).Return(nil).Run(func(args mock.Arguments) {
+			wallet := args.Get(1).(*walletEntity.Wallet)
 			assert.Equal(t, userID, wallet.UserID)
 			assert.Equal(t, 0.0, wallet.Balance)
 			assert.Equal(t, "IDR", wallet.Currency)
@@ -1038,7 +1053,7 @@ func TestUserService_CreateWalletForUser(t *testing.T) {
 		userID := uint(1)
 
 		// Mock expectations
-		mockWalletRepo.On("Create", mock.AnythingOfType("*entity.Wallet")).Return(errors.New("database error"))
+		mockWalletRepo.On("Create", mock.MatchedBy(func(ctx context.Context) bool { return ctx != nil }), mock.AnythingOfType("*entity.Wallet")).Return(errors.New("database error"))
 
 		// When
 		err := service.createWalletForUser(userID)

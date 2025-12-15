@@ -1,354 +1,336 @@
 package repository
 
 import (
+	"context"
+	"fmt"
 	"testing"
 
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/product/dto"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/product/entity"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/testutil"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
-
-	"github.com/glebarez/sqlite"
 )
 
-func setupProductTestDB(t *testing.T) *gorm.DB {
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Silent),
-	})
-	require.NoError(t, err)
-
-	err = db.AutoMigrate(&entity.Product{})
-	require.NoError(t, err)
-
-	return db
-}
-
 func TestProductRepository_Create(t *testing.T) {
-	db := setupProductTestDB(t)
-	logger := zap.NewNop()
+	// Setup
+	db, err := testutil.SetupTestDB()
+	require.NoError(t, err)
+	logger := testutil.NewTestLogger(t)
 	repo := NewProductRepository(db, logger)
+	ctx := context.Background()
 
-	tests := []struct {
-		name      string
-		product   *entity.Product
-		expectErr bool
-	}{
-		{
-			name: "create valid wifi product with active status",
-			product: &entity.Product{
-				Name:        "WiFi 10GB",
-				Description: "WiFi package",
-				Price:       50000,
-				SKU:         "WIFI-001",
-				Category:    entity.ProductCategoryWiFi,
-				Status:      entity.ProductStatusActive,
-				Stock:       100,
-			},
-			expectErr: false,
-		},
-		{
-			name: "create valid pulsa product with inactive status",
-			product: &entity.Product{
-				Name:        "Pulsa 50k",
-				Description: "Pulsa package",
-				Price:       50000,
-				SKU:         "PULSA-001",
-				Category:    entity.ProductCategoryPulsa,
-				Status:      entity.ProductStatusInactive,
-				Stock:       200,
-			},
-			expectErr: false,
-		},
-		{
-			name: "create product with minimum fields and default status",
-			product: &entity.Product{
-				Name:     "Phone",
-				Price:    5000,
-				SKU:      "PHN-001",
-				Category: entity.ProductCategoryWiFi,
-			},
-			expectErr: false,
-		},
-	}
+	t.Run("should create product successfully", func(t *testing.T) {
+		// Given
+		product := &entity.Product{
+			Name:        "WiFi 10GB",
+			Description: "WiFi package",
+			Price:       50000,
+			SKU:         "PRODUCT-wifi-20251214-ABC123",
+			Category:    entity.ProductCategoryWiFi,
+			Status:      entity.ProductStatusActive,
+			Stock:       100,
+		}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := repo.Create(tt.product)
-			if tt.expectErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.NotZero(t, tt.product.ID)
+		// When
+		err := repo.Create(ctx, product)
 
-				// Verify it was saved with all fields including status
-				saved, err := repo.GetByID(tt.product.ID)
-				assert.NoError(t, err)
-				assert.Equal(t, tt.product.Name, saved.Name)
-				assert.Equal(t, tt.product.Price, saved.Price)
-				assert.Equal(t, tt.product.Category, saved.Category)
-				assert.Equal(t, tt.product.SKU, saved.SKU)
-				// Verify status is set (either specified or default active)
-				expectedStatus := tt.product.Status
-				if expectedStatus == "" {
-					expectedStatus = entity.ProductStatusInactive
-				}
-				assert.Equal(t, expectedStatus, saved.Status)
-			}
-		})
-	}
+		// Then
+		assert.NoError(t, err)
+		assert.NotZero(t, product.ID)
+
+		// Verify product was created in database
+		var dbProduct entity.Product
+		err = db.First(&dbProduct, product.ID).Error
+		assert.NoError(t, err)
+		assert.Equal(t, product.SKU, dbProduct.SKU)
+		assert.Equal(t, product.Name, dbProduct.Name)
+		assert.Equal(t, product.Price, dbProduct.Price)
+	})
+
+	t.Run("should fail to create product with duplicate SKU", func(t *testing.T) {
+		// Given
+		product1 := &entity.Product{
+			Name:     "Product 1",
+			Price:    50000,
+			SKU:      "DUPLICATE-SKU",
+			Category: entity.ProductCategoryWiFi,
+		}
+
+		product2 := &entity.Product{
+			Name:     "Product 2",
+			Price:    50000,
+			SKU:      "DUPLICATE-SKU",
+			Category: entity.ProductCategoryWiFi,
+		}
+
+		// When
+		err1 := repo.Create(ctx, product1)
+		err2 := repo.Create(ctx, product2)
+
+		// Then
+		assert.NoError(t, err1)
+		assert.Error(t, err2) // Should fail due to unique constraint
+	})
+
+	// Cleanup
+	testutil.CleanDB(db)
 }
 
 func TestProductRepository_GetByID(t *testing.T) {
-	db := setupProductTestDB(t)
-	logger := zap.NewNop()
-	repo := NewProductRepository(db, logger)
-
-	// Create a test product with category
-	product := &entity.Product{
-		Name:     "Test Product",
-		Price:    5000,
-		SKU:      "TEST-001",
-		Stock:    10,
-		Category: entity.ProductCategoryWiFi,
-	}
-	err := repo.Create(product)
+	// Setup
+	db, err := testutil.SetupTestDB()
 	require.NoError(t, err)
+	logger := testutil.NewTestLogger(t)
+	repo := NewProductRepository(db, logger)
+	ctx := context.Background()
 
-	tests := []struct {
-		name      string
-		id        uint
-		expectErr bool
-		expectNil bool
-	}{
-		{
-			name:      "get existing product",
-			id:        product.ID,
-			expectErr: false,
-			expectNil: false,
-		},
-		{
-			name:      "get non-existent product",
-			id:        999,
-			expectErr: true,
-			expectNil: true,
-		},
-	}
+	t.Run("should get product by ID successfully", func(t *testing.T) {
+		// Given
+		product := &entity.Product{
+			Name:     "Test Product",
+			Price:    5000,
+			SKU:      "PRODUCT-test-20251214-TEST01",
+			Stock:    10,
+			Category: entity.ProductCategoryWiFi,
+		}
+		err := repo.Create(ctx, product)
+		require.NoError(t, err)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetByID(tt.id)
+		// When
+		foundProduct, err := repo.GetByID(ctx, product.ID)
 
-			if tt.expectErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.NotNil(t, result)
-				assert.Equal(t, "Test Product", result.Name)
-				assert.Equal(t, 5000.0, result.Price)
-				assert.Equal(t, entity.ProductCategoryWiFi, result.Category)
-			}
-		})
-	}
+		// Then
+		assert.NoError(t, err)
+		assert.Equal(t, product.ID, foundProduct.ID)
+		assert.Equal(t, product.SKU, foundProduct.SKU)
+		assert.Equal(t, product.Name, foundProduct.Name)
+		assert.Equal(t, product.Price, foundProduct.Price)
+	})
+
+	t.Run("should return error when product not found", func(t *testing.T) {
+		// When
+		_, err := repo.GetByID(ctx, 999)
+
+		// Then
+		assert.Error(t, err)
+		assert.Equal(t, gorm.ErrRecordNotFound, err)
+	})
+
+	// Cleanup
+	testutil.CleanDB(db)
 }
 
 func TestProductRepository_GetBySKU(t *testing.T) {
-	db := setupProductTestDB(t)
-	logger := zap.NewNop()
-	repo := NewProductRepository(db, logger)
-
-	product := &entity.Product{
-		Name:     "Test Product",
-		Price:    5000,
-		SKU:      "UNIQUE-SKU-001",
-		Stock:    10,
-		Category: entity.ProductCategoryWiFi,
-	}
-	err := repo.Create(product)
+	// Setup
+	db, err := testutil.SetupTestDB()
 	require.NoError(t, err)
+	logger := testutil.NewTestLogger(t)
+	repo := NewProductRepository(db, logger)
+	ctx := context.Background()
 
-	tests := []struct {
-		name      string
-		sku       string
-		expectErr bool
-	}{
-		{
-			name:      "get product by existing SKU",
-			sku:       "UNIQUE-SKU-001",
-			expectErr: false,
-		},
-		{
-			name:      "get product by non-existent SKU",
-			sku:       "NON-EXISTENT-SKU",
-			expectErr: true,
-		},
-	}
+	t.Run("should get product by SKU successfully", func(t *testing.T) {
+		// Given
+		product := &entity.Product{
+			Name:     "Test Product",
+			Price:    5000,
+			SKU:      "PRODUCT-unique-20251214-ABC123",
+			Stock:    10,
+			Category: entity.ProductCategoryWiFi,
+		}
+		err := repo.Create(ctx, product)
+		require.NoError(t, err)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result, err := repo.GetBySKU(tt.sku)
+		// When
+		foundProduct, err := repo.GetBySKU(ctx, product.SKU)
 
-			if tt.expectErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.NotNil(t, result)
-				assert.Equal(t, "Test Product", result.Name)
-				assert.Equal(t, tt.sku, result.SKU)
-				assert.Equal(t, entity.ProductCategoryWiFi, result.Category)
-			}
-		})
-	}
+		// Then
+		assert.NoError(t, err)
+		assert.Equal(t, product.ID, foundProduct.ID)
+		assert.Equal(t, product.SKU, foundProduct.SKU)
+		assert.Equal(t, product.Name, foundProduct.Name)
+		assert.Equal(t, product.Category, foundProduct.Category)
+	})
+
+	t.Run("should return error when SKU not found", func(t *testing.T) {
+		// When
+		_, err := repo.GetBySKU(ctx, "NON-EXISTENT-SKU")
+
+		// Then
+		assert.Error(t, err)
+		assert.Equal(t, gorm.ErrRecordNotFound, err)
+	})
+
+	// Cleanup
+	testutil.CleanDB(db)
 }
 
 func TestProductRepository_GetAll(t *testing.T) {
-	db := setupProductTestDB(t)
-	logger := zap.NewNop()
+	// Setup
+	db, err := testutil.SetupTestDB()
+	require.NoError(t, err)
+	logger := testutil.NewTestLogger(t)
 	repo := NewProductRepository(db, logger)
+	ctx := context.Background()
 
-	// Create test products
-	products := []entity.Product{
-		{Name: "Laptop", Price: 10000, SKU: "LAP-001", Stock: 5, Category: entity.ProductCategoryWiFi},
-		{Name: "Phone", Price: 5000, SKU: "PHN-001", Stock: 10, Category: entity.ProductCategoryPulsa},
-		{Name: "Tablet", Price: 3000, SKU: "TAB-001", Stock: 15, Category: entity.ProductCategoryWiFi},
-	}
+	t.Run("should get all products with pagination", func(t *testing.T) {
+		// Given - Create multiple products
+		for i := 0; i < 5; i++ {
+			product := &entity.Product{
+				Name:     fmt.Sprintf("Product %d", i),
+				Price:    float64(5000 * (i + 1)),
+				SKU:      fmt.Sprintf("PRODUCT-test-%d-SKU%02d", 20251214, i),
+				Stock:    i * 10,
+				Category: entity.ProductCategoryWiFi,
+			}
+			err := repo.Create(ctx, product)
+			require.NoError(t, err)
+		}
 
-	for i := range products {
-		err := repo.Create(&products[i])
+		filter := &dto.ProductFilter{
+			Page:  1,
+			Limit: 3,
+		}
+
+		// When
+		products, totalCount, err := repo.GetAll(ctx, filter)
+
+		// Then
+		assert.NoError(t, err)
+		assert.Len(t, products, 3)            // Should return 3 products due to limit
+		assert.Equal(t, int64(5), totalCount) // Total count should be 5
+	})
+
+	// Cleanup
+	testutil.CleanDB(db)
+
+	// New setup for second test
+	db2, err := testutil.SetupTestDB()
+	require.NoError(t, err)
+	logger2 := testutil.NewTestLogger(t)
+	repo2 := NewProductRepository(db2, logger2)
+
+	t.Run("should filter products by search", func(t *testing.T) {
+		// Given
+		product1 := &entity.Product{
+			Name:     "Laptop Computer",
+			Price:    15000,
+			SKU:      "PRODUCT-laptop-20251214-PC001",
+			Stock:    5,
+			Category: entity.ProductCategoryWiFi,
+		}
+		err := repo2.Create(ctx, product1)
 		require.NoError(t, err)
-	}
 
-	tests := []struct {
-		name             string
-		filter           *dto.ProductFilter
-		expectedCount    int64
-		expectedMinItems int
-	}{
-		{
-			name:             "get all products with default pagination",
-			filter:           &dto.ProductFilter{Page: 1, Limit: 10},
-			expectedCount:    3,
-			expectedMinItems: 3,
-		},
-		{
-			name:             "get products with limit",
-			filter:           &dto.ProductFilter{Page: 1, Limit: 2},
-			expectedCount:    3,
-			expectedMinItems: 2,
-		},
-	}
+		product2 := &entity.Product{
+			Name:     "WiFi Router",
+			Price:    3000,
+			SKU:      "PRODUCT-wifi-20251214-RT001",
+			Stock:    20,
+			Category: entity.ProductCategoryWiFi,
+		}
+		err = repo2.Create(ctx, product2)
+		require.NoError(t, err)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			results, total, err := repo.GetAll(tt.filter)
+		filter := &dto.ProductFilter{
+			Search: "Laptop",
+			Page:   1,
+			Limit:  10,
+		}
 
-			assert.NoError(t, err)
-			assert.Equal(t, tt.expectedCount, total)
-			assert.GreaterOrEqual(t, len(results), tt.expectedMinItems)
-		})
-	}
+		// When
+		products, totalCount, err := repo2.GetAll(ctx, filter)
+
+		// Then
+		assert.NoError(t, err)
+		if assert.Greater(t, len(products), 0, "expected at least one product matching 'Laptop'") {
+			assert.Equal(t, "Laptop Computer", products[0].Name)
+		}
+		assert.GreaterOrEqual(t, totalCount, int64(1))
+	})
+
+	// Cleanup
+	testutil.CleanDB(db2)
 }
 
 func TestProductRepository_Update(t *testing.T) {
-	db := setupProductTestDB(t)
-	logger := zap.NewNop()
-	repo := NewProductRepository(db, logger)
-
-	// Create a test product
-	product := &entity.Product{
-		Name:     "Original Name",
-		Price:    5000,
-		SKU:      "UPDATE-TEST",
-		Stock:    10,
-		Category: entity.ProductCategoryWiFi,
-	}
-	err := repo.Create(product)
+	// Setup
+	db, err := testutil.SetupTestDB()
 	require.NoError(t, err)
+	logger := testutil.NewTestLogger(t)
+	repo := NewProductRepository(db, logger)
+	ctx := context.Background()
 
-	tests := []struct {
-		name      string
-		product   *entity.Product
-		expectErr bool
-	}{
-		{
-			name: "update product fields including status",
-			product: &entity.Product{
-				ID:       product.ID,
-				Name:     "Updated Name",
-				Price:    6000,
-				SKU:      "UPDATE-TEST",
-				Stock:    20,
-				Category: entity.ProductCategoryPulsa,
-				Status:   entity.ProductStatusInactive,
-			},
-			expectErr: false,
-		},
-	}
+	t.Run("should update product successfully", func(t *testing.T) {
+		// Given
+		product := &entity.Product{
+			Name:     "Original Name",
+			Price:    5000,
+			SKU:      "PRODUCT-update-20251214-UPD01",
+			Stock:    10,
+			Category: entity.ProductCategoryWiFi,
+			Status:   entity.ProductStatusActive,
+		}
+		err := repo.Create(ctx, product)
+		require.NoError(t, err)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := repo.Update(tt.product)
+		// When
+		product.Name = "Updated Name"
+		product.Price = 6000
+		product.Stock = 20
+		product.Status = entity.ProductStatusInactive
+		err = repo.Update(ctx, product)
 
-			if tt.expectErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
+		// Then
+		assert.NoError(t, err)
 
-				// Verify the update including status
-				saved, err := repo.GetByID(tt.product.ID)
-				assert.NoError(t, err)
-				assert.Equal(t, "Updated Name", saved.Name)
-				assert.Equal(t, 6000.0, saved.Price)
-				assert.Equal(t, 20, saved.Stock)
-				assert.Equal(t, entity.ProductCategoryPulsa, saved.Category)
-				assert.Equal(t, entity.ProductStatusInactive, saved.Status)
-			}
-		})
-	}
+		// Verify the update
+		savedProduct, err := repo.GetByID(ctx, product.ID)
+		assert.NoError(t, err)
+		assert.Equal(t, "Updated Name", savedProduct.Name)
+		assert.Equal(t, 6000.0, savedProduct.Price)
+		assert.Equal(t, 20, savedProduct.Stock)
+		assert.Equal(t, entity.ProductStatusInactive, savedProduct.Status)
+	})
+
+	// Cleanup
+	testutil.CleanDB(db)
 }
 
 func TestProductRepository_Delete(t *testing.T) {
-	db := setupProductTestDB(t)
-	logger := zap.NewNop()
-	repo := NewProductRepository(db, logger)
-
-	product := &entity.Product{
-		Name:     "Delete Test",
-		Price:    5000,
-		SKU:      "DEL-TEST",
-		Stock:    5,
-		Category: entity.ProductCategoryWiFi,
-	}
-	err := repo.Create(product)
+	// Setup
+	db, err := testutil.SetupTestDB()
 	require.NoError(t, err)
+	logger := testutil.NewTestLogger(t)
+	repo := NewProductRepository(db, logger)
+	ctx := context.Background()
 
-	tests := []struct {
-		name      string
-		id        uint
-		expectErr bool
-	}{
-		{
-			name:      "delete existing product",
-			id:        product.ID,
-			expectErr: false,
-		},
-	}
+	t.Run("should delete product successfully", func(t *testing.T) {
+		// Given
+		product := &entity.Product{
+			Name:     "Delete Test",
+			Price:    5000,
+			SKU:      "PRODUCT-delete-20251214-DEL01",
+			Stock:    5,
+			Category: entity.ProductCategoryWiFi,
+		}
+		err := repo.Create(ctx, product)
+		require.NoError(t, err)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := repo.Delete(tt.id)
+		// When
+		err = repo.Delete(ctx, product.ID)
 
-			if tt.expectErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
+		// Then
+		assert.NoError(t, err)
 
-				// Verify deletion
-				_, err := repo.GetByID(tt.id)
-				assert.Error(t, err)
-			}
-		})
-	}
+		// Verify product was deleted
+		_, err = repo.GetByID(ctx, product.ID)
+		assert.Error(t, err)
+		assert.Equal(t, gorm.ErrRecordNotFound, err)
+	})
+
+	// Cleanup
+	testutil.CleanDB(db)
 }

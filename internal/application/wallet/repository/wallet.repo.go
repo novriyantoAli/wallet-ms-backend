@@ -1,10 +1,12 @@
 package repository
 
 import (
+	"context"
 	"time"
 
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/wallet/dto"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/wallet/entity"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/database"
 
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -27,16 +29,16 @@ type WalletWithUserData struct {
 
 // WalletRepository defines the interface for wallet data access
 type WalletRepository interface {
-	Create(wallet *entity.Wallet) error
-	GetByID(id uint) (*entity.Wallet, error)
-	GetByUserID(userID uint) (*entity.Wallet, error)
-	GetAll(filter *dto.WalletFilter) ([]entity.Wallet, int64, error)
-	Update(wallet *entity.Wallet) error
-	Delete(id uint) error
-	UpdateBalance(walletID uint, amount float64) error
-	GetByIDWithUser(id uint) (*WalletWithUserData, error)
-	GetByUserIDWithUser(userID uint) (*WalletWithUserData, error)
-	GetAllWithUser(filter *dto.WalletFilter) ([]WalletWithUserData, int64, error)
+	Create(ctx context.Context, wallet *entity.Wallet) error
+	GetByID(ctx context.Context, id uint) (*entity.Wallet, error)
+	GetByUserID(ctx context.Context, userID uint) (*entity.Wallet, error)
+	GetAll(ctx context.Context, filter *dto.WalletFilter) ([]entity.Wallet, int64, error)
+	Update(ctx context.Context, wallet *entity.Wallet) error
+	Delete(ctx context.Context, id uint) error
+	UpdateBalance(ctx context.Context, walletID uint, amount float64) error
+	GetByIDWithUser(ctx context.Context, id uint) (*WalletWithUserData, error)
+	GetByUserIDWithUser(ctx context.Context, userID uint) (*WalletWithUserData, error)
+	GetAllWithUser(ctx context.Context, filter *dto.WalletFilter) ([]WalletWithUserData, int64, error)
 }
 
 type walletRepository struct {
@@ -52,14 +54,16 @@ func NewWalletRepository(db *gorm.DB, logger *zap.Logger) WalletRepository {
 	}
 }
 
-func (r *walletRepository) Create(wallet *entity.Wallet) error {
+func (r *walletRepository) Create(ctx context.Context, wallet *entity.Wallet) error {
 	r.logger.Info("Creating wallet", zap.Uint("user_id", wallet.UserID))
-	return r.db.Create(wallet).Error
+	db := database.GetDB(ctx, r.db)
+	return db.Create(wallet).Error
 }
 
-func (r *walletRepository) GetByID(id uint) (*entity.Wallet, error) {
+func (r *walletRepository) GetByID(ctx context.Context, id uint) (*entity.Wallet, error) {
 	var wallet entity.Wallet
-	err := r.db.Where("id = ?", id).First(&wallet).Error
+	db := database.GetDB(ctx, r.db)
+	err := db.Where("id = ?", id).First(&wallet).Error
 	if err != nil {
 		r.logger.Error("Failed to get wallet by ID", zap.Uint("id", id), zap.Error(err))
 		return nil, err
@@ -67,9 +71,10 @@ func (r *walletRepository) GetByID(id uint) (*entity.Wallet, error) {
 	return &wallet, nil
 }
 
-func (r *walletRepository) GetByUserID(userID uint) (*entity.Wallet, error) {
+func (r *walletRepository) GetByUserID(ctx context.Context, userID uint) (*entity.Wallet, error) {
 	var wallet entity.Wallet
-	err := r.db.Where("user_id = ?", userID).First(&wallet).Error
+	db := database.GetDB(ctx, r.db)
+	err := db.Where("user_id = ?", userID).First(&wallet).Error
 	if err != nil {
 		r.logger.Error("Failed to get wallet by user ID", zap.Uint("user_id", userID), zap.Error(err))
 		return nil, err
@@ -77,11 +82,12 @@ func (r *walletRepository) GetByUserID(userID uint) (*entity.Wallet, error) {
 	return &wallet, nil
 }
 
-func (r *walletRepository) GetAll(filter *dto.WalletFilter) ([]entity.Wallet, int64, error) {
+func (r *walletRepository) GetAll(ctx context.Context, filter *dto.WalletFilter) ([]entity.Wallet, int64, error) {
 	var wallets []entity.Wallet
 	var totalCount int64
 
-	query := r.db
+	db := database.GetDB(ctx, r.db)
+	query := db
 
 	// Apply filters
 	if filter.UserID != 0 {
@@ -115,25 +121,29 @@ func (r *walletRepository) GetAll(filter *dto.WalletFilter) ([]entity.Wallet, in
 	return wallets, totalCount, nil
 }
 
-func (r *walletRepository) Update(wallet *entity.Wallet) error {
+func (r *walletRepository) Update(ctx context.Context, wallet *entity.Wallet) error {
 	r.logger.Info("Updating wallet", zap.Uint("id", wallet.ID))
-	return r.db.Save(wallet).Error
+	db := database.GetDB(ctx, r.db)
+	return db.Save(wallet).Error
 }
 
-func (r *walletRepository) Delete(id uint) error {
+func (r *walletRepository) Delete(ctx context.Context, id uint) error {
 	r.logger.Info("Deleting wallet", zap.Uint("id", id))
-	return r.db.Delete(&entity.Wallet{}, id).Error
+	db := database.GetDB(ctx, r.db)
+	return db.Delete(&entity.Wallet{}, id).Error
 }
 
-func (r *walletRepository) UpdateBalance(walletID uint, amount float64) error {
+func (r *walletRepository) UpdateBalance(ctx context.Context, walletID uint, amount float64) error {
 	r.logger.Info("Updating wallet balance", zap.Uint("wallet_id", walletID), zap.Float64("amount", amount))
-	return r.db.Model(&entity.Wallet{}).Where("id = ?", walletID).
+	db := database.GetDB(ctx, r.db)
+	return db.Model(&entity.Wallet{}).Where("id = ?", walletID).
 		Update("balance", gorm.Expr("balance + ?", amount)).Error
 }
 
-func (r *walletRepository) GetByIDWithUser(id uint) (*WalletWithUserData, error) {
+func (r *walletRepository) GetByIDWithUser(ctx context.Context, id uint) (*WalletWithUserData, error) {
 	var walletWithUser WalletWithUserData
-	err := r.db.Table("wallets").
+	db := database.GetDB(ctx, r.db)
+	err := db.Table("wallets").
 		Select(
 			"wallets.id",
 			"wallets.user_id",
@@ -157,9 +167,10 @@ func (r *walletRepository) GetByIDWithUser(id uint) (*WalletWithUserData, error)
 	return &walletWithUser, nil
 }
 
-func (r *walletRepository) GetByUserIDWithUser(userID uint) (*WalletWithUserData, error) {
+func (r *walletRepository) GetByUserIDWithUser(ctx context.Context, userID uint) (*WalletWithUserData, error) {
 	var walletWithUser WalletWithUserData
-	err := r.db.Table("wallets").
+	db := database.GetDB(ctx, r.db)
+	err := db.Table("wallets").
 		Select(
 			"wallets.id",
 			"wallets.user_id",
@@ -183,11 +194,12 @@ func (r *walletRepository) GetByUserIDWithUser(userID uint) (*WalletWithUserData
 	return &walletWithUser, nil
 }
 
-func (r *walletRepository) GetAllWithUser(filter *dto.WalletFilter) ([]WalletWithUserData, int64, error) {
+func (r *walletRepository) GetAllWithUser(ctx context.Context, filter *dto.WalletFilter) ([]WalletWithUserData, int64, error) {
 	var wallets []WalletWithUserData
 	var totalCount int64
 
-	query := r.db.Table("wallets").
+	db := database.GetDB(ctx, r.db)
+	query := db.Table("wallets").
 		Select(
 			"wallets.id",
 			"wallets.user_id",

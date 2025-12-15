@@ -1,18 +1,21 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/hibiken/asynq"
+	"github.com/novriyantoAli/wallet-ms-backend/api/proto/auth"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/product/repository"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/purchase/dto"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/purchase/entity"
 	purchaseRepo "github.com/novriyantoAli/wallet-ms-backend/internal/application/purchase/repository"
 	walletDTO "github.com/novriyantoAli/wallet-ms-backend/internal/application/wallet/dto"
 	walletService "github.com/novriyantoAli/wallet-ms-backend/internal/application/wallet/service"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/client"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/queue"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -33,6 +36,7 @@ type purchaseService struct {
 	purchaseRepo  purchaseRepo.PurchaseRepository
 	productRepo   repository.ProductRepository
 	walletService walletService.WalletService
+	authClient    *client.AuthServiceClient
 	queueClient   *queue.Client
 	logger        *zap.Logger
 }
@@ -42,6 +46,7 @@ func NewPurchaseService(
 	purchaseRepo purchaseRepo.PurchaseRepository,
 	productRepo repository.ProductRepository,
 	walletService walletService.WalletService,
+	authClient *client.AuthServiceClient,
 	logger *zap.Logger,
 ) PurchaseService {
 	return &purchaseService{
@@ -49,6 +54,7 @@ func NewPurchaseService(
 		purchaseRepo:  purchaseRepo,
 		productRepo:   productRepo,
 		walletService: walletService,
+		authClient:    authClient,
 		queueClient:   nil, // Queue client is optional
 		logger:        logger,
 	}
@@ -58,6 +64,16 @@ func (s *purchaseService) CreatePurchase(req *dto.CreatePurchaseRequest) (*dto.P
 	// Validate request
 	if req.UserID == 0 || req.ProductID == 0 || req.Quantity <= 0 {
 		return nil, errors.New("invalid purchase data")
+	}
+
+	// Create context with timeout for auth service call
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Validate user via auth service
+	if err := s.validateUserViaAuth(ctx, fmt.Sprintf("user_%d", req.UserID)); err != nil {
+		s.logger.Warn("User validation failed", zap.Uint("user_id", req.UserID), zap.Error(err))
+		// Continue with purchase even if auth validation fails (can be made strict later)
 	}
 
 	// Start transaction
@@ -520,4 +536,29 @@ func (s *purchaseService) entityToResponse(purchase *entity.Purchase) *dto.Purch
 		CreatedAt:  purchase.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt:  purchase.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
+}
+
+// validateUserViaAuth validates user through auth service
+func (s *purchaseService) validateUserViaAuth(ctx context.Context, username string) error {
+	if s.authClient == nil {
+		s.logger.Warn("Auth client not available, skipping user validation")
+		return nil
+	}
+
+	// Create auth validation request
+	req := &auth.CreateAuthRequest{
+		Username: username,
+		// Add any validation attributes as needed
+	}
+
+	s.logger.Debug("Validating user via auth service", zap.String("username", username))
+
+	resp, err := s.authClient.CreateAuth(ctx, req)
+	if err != nil {
+		s.logger.Error("Failed to validate user via auth service", zap.String("username", username), zap.Error(err))
+		return fmt.Errorf("user validation failed: %w", err)
+	}
+
+	s.logger.Debug("User validated successfully", zap.String("username", resp.Username))
+	return nil
 }

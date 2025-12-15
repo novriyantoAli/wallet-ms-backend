@@ -1,58 +1,78 @@
 package service
 
 import (
+	"context"
 	"errors"
 
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/product/dto"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/product/entity"
 	"github.com/novriyantoAli/wallet-ms-backend/internal/application/product/repository"
-	"github.com/novriyantoAli/wallet-ms-backend/internal/application/product/util"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/database"
+	"github.com/novriyantoAli/wallet-ms-backend/internal/pkg/sku"
 
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
 type ProductService interface {
-	CreateProduct(req *dto.CreateProductRequest) (*dto.ProductResponse, error)
-	GetProductByID(id uint) (*dto.ProductResponse, error)
-	GetProductBySKU(sku string) (*dto.ProductResponse, error)
-	GetProducts(filter *dto.ProductFilter) (*dto.ProductListResponse, error)
-	GetActiveProducts(filter *dto.ProductFilter) (*dto.ProductListResponse, error)
-	UpdateProduct(id uint, req *dto.UpdateProductRequest) (*dto.ProductResponse, error)
-	UpdateProductStatus(id uint, status string) (*dto.ProductResponse, error)
-	DeleteProduct(id uint) error
+	CreateProduct(ctx context.Context, req *dto.CreateProductRequest) (*dto.ProductResponse, error)
+	GetProductByID(ctx context.Context, id uint) (*dto.ProductResponse, error)
+	GetProductBySKU(ctx context.Context, sku string) (*dto.ProductResponse, error)
+	GetProducts(ctx context.Context, filter *dto.ProductFilter) (*dto.ProductListResponse, error)
+	GetActiveProducts(ctx context.Context, filter *dto.ProductFilter) (*dto.ProductListResponse, error)
+	UpdateProduct(ctx context.Context, id uint, req *dto.UpdateProductRequest) (*dto.ProductResponse, error)
+	UpdateProductStatus(ctx context.Context, id uint, status string) (*dto.ProductResponse, error)
+	DeleteProduct(ctx context.Context, id uint) error
 }
 
 type productService struct {
+	txManager       database.TransactionManagerI
 	repo            repository.ProductRepository
 	wifiProductRepo repository.WiFiProductRepository
+	skuGen          *sku.Generator
 	logger          *zap.Logger
 }
 
-func NewProductService(repo repository.ProductRepository, wifiProductRepo repository.WiFiProductRepository, logger *zap.Logger) ProductService {
+func NewProductService(
+	txManager database.TransactionManagerI,
+	repo repository.ProductRepository,
+	wifiProductRepo repository.WiFiProductRepository,
+	logger *zap.Logger,
+) ProductService {
 	return &productService{
+		txManager:       txManager,
 		repo:            repo,
 		wifiProductRepo: wifiProductRepo,
+		skuGen:          sku.NewGenerator("PRODUCT"),
 		logger:          logger,
 	}
 }
 
-func (s *productService) CreateProduct(req *dto.CreateProductRequest) (*dto.ProductResponse, error) {
-	// Auto-generate SKU from category, name, and price
-	sku := util.GenerateSKU(req.Category, req.Name, req.Price)
+func (s *productService) CreateProduct(ctx context.Context, req *dto.CreateProductRequest) (*dto.ProductResponse, error) {
+	// Validate input
+	if req.Name == "" || req.Price <= 0 || req.Category == "" {
+		return nil, errors.New("invalid product data")
+	}
 
-	// Check if SKU already exists
-	existing, _ := s.repo.GetBySKU(sku)
+	// Auto-generate unique SKU using SKU generator
+	skuValue, err := s.skuGen.GenerateWithPattern("PRODUCT-" + req.Category + "-{date}-{random}")
+	if err != nil {
+		s.logger.Error("Failed to generate SKU", zap.Error(err))
+		return nil, errors.New("failed to generate product SKU")
+	}
+
+	// Check if SKU already exists (extremely unlikely with timestamp but good practice)
+	existing, _ := s.repo.GetBySKU(ctx, skuValue)
 	if existing != nil {
-		s.logger.Warn("Product with auto-generated SKU already exists", zap.String("sku", sku))
-		return nil, errors.New("product with this name, category and price already exists")
+		s.logger.Warn("Product with auto-generated SKU already exists", zap.String("sku", skuValue))
+		return nil, errors.New("product sku already exists")
 	}
 
 	product := &entity.Product{
 		Name:        req.Name,
 		Description: req.Description,
 		Price:       req.Price,
-		SKU:         sku,
+		SKU:         skuValue,
 		Category:    entity.ProductCategory(req.Category),
 		Status:      entity.ProductStatusInactive, // Default status is inactive
 		Stock:       req.Stock,
@@ -63,34 +83,45 @@ func (s *productService) CreateProduct(req *dto.CreateProductRequest) (*dto.Prod
 		return nil, errors.New("invalid product data")
 	}
 
-	if err := s.repo.Create(product); err != nil {
-		s.logger.Error("Failed to create product", zap.Error(err))
+	// Use transaction for atomic operations: create product + wifi product (if applicable)
+	var result *entity.Product
+	err = s.txManager.WithinTransaction(ctx, func(txCtx context.Context) error {
+		// Step 1: Create product
+		if err := s.repo.Create(txCtx, product); err != nil {
+			s.logger.Error("Failed to create product in transaction", zap.Error(err))
+			return err
+		}
+		result = product
+
+		// Step 2: If category is WiFi, create WiFi product entry
+		if product.Category == entity.ProductCategoryWiFi {
+			wifiProduct := &entity.WiFiProduct{
+				ProductID:  product.ID,
+				Quota:      0, // Will be updated through separate endpoint
+				Duration:   0, // Will be updated through separate endpoint
+				SpeedLimit: 0, // Will be updated through separate endpoint
+			}
+
+			if err := s.wifiProductRepo.Create(txCtx, wifiProduct); err != nil {
+				s.logger.Error("Failed to create wifi product in transaction", zap.Error(err))
+				return err // Rollback transaction on failure
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		s.logger.Error("Transaction failed for product creation", zap.Error(err))
 		return nil, err
 	}
 
-	// If category is WiFi, WiFi product details must be provided
-	if product.Category == entity.ProductCategoryWiFi {
-		// For WiFi products, create a default WiFi product entry
-		// The WiFi product details (quota, duration, speed_limit) should be set by the client through a separate endpoint
-		wifiProduct := &entity.WiFiProduct{
-			ProductID:  product.ID,
-			Quota:      0, // Will be updated through separate endpoint
-			Duration:   0, // Will be updated through separate endpoint
-			SpeedLimit: 0, // Will be updated through separate endpoint
-		}
-
-		if err := s.wifiProductRepo.Create(wifiProduct); err != nil {
-			s.logger.Warn("Failed to create wifi product details, but product was created", zap.Error(err), zap.Uint("product_id", product.ID))
-			// Don't fail the product creation if wifi product creation fails
-		}
-	}
-
-	s.logger.Info("Product created successfully", zap.Uint("id", product.ID), zap.String("sku", sku), zap.String("category", string(product.Category)))
-	return s.entityToResponse(product), nil
+	s.logger.Info("Product created successfully with transaction", zap.Uint("id", result.ID), zap.String("sku", skuValue), zap.String("category", string(result.Category)))
+	return s.entityToResponse(result), nil
 }
 
-func (s *productService) GetProductByID(id uint) (*dto.ProductResponse, error) {
-	product, err := s.repo.GetByID(id)
+func (s *productService) GetProductByID(ctx context.Context, id uint) (*dto.ProductResponse, error) {
+	product, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("product not found")
@@ -102,8 +133,8 @@ func (s *productService) GetProductByID(id uint) (*dto.ProductResponse, error) {
 	return s.entityToResponse(product), nil
 }
 
-func (s *productService) GetProductBySKU(sku string) (*dto.ProductResponse, error) {
-	product, err := s.repo.GetBySKU(sku)
+func (s *productService) GetProductBySKU(ctx context.Context, sku string) (*dto.ProductResponse, error) {
+	product, err := s.repo.GetBySKU(ctx, sku)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("product not found")
@@ -115,7 +146,7 @@ func (s *productService) GetProductBySKU(sku string) (*dto.ProductResponse, erro
 	return s.entityToResponse(product), nil
 }
 
-func (s *productService) GetProducts(filter *dto.ProductFilter) (*dto.ProductListResponse, error) {
+func (s *productService) GetProducts(ctx context.Context, filter *dto.ProductFilter) (*dto.ProductListResponse, error) {
 	if filter.Page <= 0 {
 		filter.Page = 1
 	}
@@ -123,7 +154,7 @@ func (s *productService) GetProducts(filter *dto.ProductFilter) (*dto.ProductLis
 		filter.Limit = 10
 	}
 
-	products, total, err := s.repo.GetAll(filter)
+	products, total, err := s.repo.GetAll(ctx, filter)
 	if err != nil {
 		s.logger.Error("Failed to get products", zap.Error(err))
 		return nil, err
@@ -146,8 +177,8 @@ func (s *productService) GetProducts(filter *dto.ProductFilter) (*dto.ProductLis
 	}, nil
 }
 
-func (s *productService) GetActiveProducts(filter *dto.ProductFilter) (*dto.ProductListResponse, error) {
-	products, total, err := s.repo.GetActiveProducts(filter)
+func (s *productService) GetActiveProducts(ctx context.Context, filter *dto.ProductFilter) (*dto.ProductListResponse, error) {
+	products, total, err := s.repo.GetActiveProducts(ctx, filter)
 	if err != nil {
 		s.logger.Error("Failed to get active products", zap.Error(err))
 		return nil, err
@@ -169,8 +200,8 @@ func (s *productService) GetActiveProducts(filter *dto.ProductFilter) (*dto.Prod
 	}, nil
 }
 
-func (s *productService) UpdateProduct(id uint, req *dto.UpdateProductRequest) (*dto.ProductResponse, error) {
-	product, err := s.repo.GetByID(id)
+func (s *productService) UpdateProduct(ctx context.Context, id uint, req *dto.UpdateProductRequest) (*dto.ProductResponse, error) {
+	product, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("product not found")
@@ -199,7 +230,7 @@ func (s *productService) UpdateProduct(id uint, req *dto.UpdateProductRequest) (
 		product.Stock = req.Stock
 	}
 
-	if err := s.repo.Update(product); err != nil {
+	if err := s.repo.Update(ctx, product); err != nil {
 		s.logger.Error("Failed to update product", zap.Error(err), zap.Uint("id", id))
 		return nil, err
 	}
@@ -207,13 +238,13 @@ func (s *productService) UpdateProduct(id uint, req *dto.UpdateProductRequest) (
 	return s.entityToResponse(product), nil
 }
 
-func (s *productService) UpdateProductStatus(id uint, status string) (*dto.ProductResponse, error) {
+func (s *productService) UpdateProductStatus(ctx context.Context, id uint, status string) (*dto.ProductResponse, error) {
 	// Validate status value
 	if status != "active" && status != "inactive" {
 		return nil, errors.New("invalid status: must be 'active' or 'inactive'")
 	}
 
-	product, err := s.repo.GetByID(id)
+	product, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("product not found")
@@ -224,7 +255,7 @@ func (s *productService) UpdateProductStatus(id uint, status string) (*dto.Produ
 
 	product.Status = entity.ProductStatus(status)
 
-	if err := s.repo.Update(product); err != nil {
+	if err := s.repo.Update(ctx, product); err != nil {
 		s.logger.Error("Failed to update product status", zap.Error(err), zap.Uint("id", id))
 		return nil, err
 	}
@@ -234,9 +265,9 @@ func (s *productService) UpdateProductStatus(id uint, status string) (*dto.Produ
 	return s.entityToResponse(product), nil
 }
 
-func (s *productService) DeleteProduct(id uint) error {
+func (s *productService) DeleteProduct(ctx context.Context, id uint) error {
 	// Check if product exists (before cascade delete)
-	_, err := s.repo.GetByID(id)
+	_, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errors.New("product not found")
@@ -246,7 +277,7 @@ func (s *productService) DeleteProduct(id uint) error {
 	}
 
 	// Delete product (cascade deletes wifi_products)
-	if err := s.repo.Delete(id); err != nil {
+	if err := s.repo.Delete(ctx, id); err != nil {
 		s.logger.Error("Failed to delete product", zap.Error(err), zap.Uint("id", id))
 		return err
 	}
